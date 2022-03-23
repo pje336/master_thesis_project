@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 class IndexTracker:
     """
-    class to update the plot for evergy slice.
+    class to update the plot for every slice.
     based on: https://matplotlib.org/stable/gallery/event_handling/image_slices_viewer.html
 
     :param axes: array with plt.axes

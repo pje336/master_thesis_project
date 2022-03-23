@@ -14,6 +14,7 @@ def import_CT_data(path_drive, path_CT):
     full_path, dirs, files = next(os.walk(path_drive + path_CT))
 
     data = pydicom.dcmread(full_path + files[0])
+
     CT_data = np.zeros((int(data.ImagesInAcquisition), int(data.Rows), int(data.Columns)))
 
     for i, file in enumerate(files):
