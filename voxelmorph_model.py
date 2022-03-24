@@ -3,6 +3,7 @@ from data_importer import import_CT_data
 from slice_viewer import slice_viewer
 import voxelmorph as vxm
 import torch
+from datetime import datetime
 
 
 
@@ -21,8 +22,8 @@ CT_data_90 = import_CT_data(path_drive, path_CT_90)[:80]
 # network parameters for voxelmorph
 vol_shape = np.array(np.shape(CT_data_0)) #input shape
 nb_features = [
-    [16, 32, 32],
-    [ 32, 32, 16]
+    [16, 32, 32, 32],
+    [ 32, 32, 32, 16]
 ] # number of features of encoder and decoder
 
 losses = vxm.losses.Grad('l2').loss
@@ -45,6 +46,7 @@ def train(epochs):
         # for x_data, y_data:
 
         prediction, pos_flow = vxm_model(x_data,y_data)
+        np.save("predicted_CT_epoch_{}.npy".format(epoch+1),prediction[0,0,...].detach().numpy())
         print(np.shape(prediction))
 
         print("calculate losses")
@@ -55,7 +57,8 @@ def train(epochs):
         loss.backward()
         print("done")
         optimizer.step()
-
+    torch.save(vxm_model, "./saved_models/voxelmorph_model_timestamp_{}.pth".format(datetime.now().strftime("%Y_%m_%d_%H_%M_%S")))
+    print("model saved")
 
 train(3)
 
