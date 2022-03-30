@@ -58,6 +58,8 @@ def CT_dataset(patient_id, scan_id, phases, root_path, ct_path_dict):
 
 def dataset_generator(patient_id, scan_id, m_phases, f_phase, root_path, ct_path_dict):
     """
+    Generates tensors with CT data of moving images and fixed image. 
+    Tensors have shape [len(m_phases),1,z,x,y]
 
     :param patient_id: [int] patient number
     :param scan_id: [string] ID of the scan
@@ -67,13 +69,16 @@ def dataset_generator(patient_id, scan_id, m_phases, f_phase, root_path, ct_path
     :param root_path: [string] root path to 4DCT folders.
     :param ct_path_dict: [dict] dictionary with all filepaths to the CT data.
 
-    :return:
+    :return moving_tensor: torch.tensor shape [len(m_phases),1,z,x,y] tensor with CT data of all moving images.
+    :return fixed_tensor: torch.tensor shape [len(m_phases),1,z,x,y] tensor with repeated CT data of fixed image.
     """
 
     moving_ct_data = CT_dataset(patient_id, scan_id, m_phases, root_path, ct_path_dict)
+    # repeat fixed image data to match the moving image array shape.
     fixed_ct_data = np.repeat(CT_dataset(patient_id, scan_id, [f_phase], root_path, ct_path_dict), len(m_phases),
                               axis=0)
 
+    # transform to torch.tensor
     moving_tensor = torch.tensor(np.expand_dims(moving_ct_data, axis=1), dtype=torch.float)
     fixed_tensor = torch.tensor(np.expand_dims(fixed_ct_data, axis=1), dtype=torch.float)
 
