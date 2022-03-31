@@ -1,64 +1,55 @@
-import numpy as np
-from slice_viewer import slice_viewer
-import voxelmorph as vxm
 import torch
-from datetime import datetime
-from dataset_generator import dataset_generator
-from ct_path_dict import ct_path_dict
-
-# data parameters
-root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung/"
-patient_id = 107
-scan_id = "06-02-1999-p4-89680"
-m_phases = [0, 30]
-f_phase = 50
-z_max = 80
-
-# Obtain data
-dataset = dataset_generator(patient_id, scan_id, m_phases, f_phase, root_path, ct_path_dict)
-vol_shape = np.array(dataset[:, :, :z_max, :, :].shape)[-3:]  # input shape
-
-# Network parameters for voxelmorph
-
-nb_features = [
-    [16, 32, 32, 32],
-    [32, 32, 32, 16]]  # number of features of encoder and decoder
-
-losses = [vxm.losses.MSE().loss, vxm.losses.Grad('l2').loss]
-loss_weights = [1, 0.01]
-
-vxm_model = vxm.networks.VxmDense(vol_shape, nb_features, int_steps=0)
-learning_rate = 1e-3
 
 
-def train(epochs):
+def train(vxm_model, dataset, epochs, batch_size, learning_rate, losses, loss_weights):
+    """
+    Training routine for voxelmorph model using dataset.
+    return trained model
+
+    :param vxm_model: [torch model] Voxelmorph  model.
+    :param dataset: DataLoader of ct_dataset class with fixed and moving image pairs.
+    :param epochs: [int] number of epochs
+    :param batch_size: [int] batch size before updating weights.
+    :param learning_rate: [float] Set learning rate for optimiser.
+    :param losses: [array] array of loss functions from voxelmorph
+    :param loss_weights: [array] array with weight for each loss function
+    :return: vxm_model: [torch model] trained Voxelmorph model
+    """
+
     torch.backends.cudnn.deterministic = True
     vxm_model.train()
     optimizer = torch.optim.Adam(vxm_model.parameters(), lr=learning_rate)
 
     for epoch in range(epochs):
         print("epoch {} of {}".format(epoch + 1, epochs))
+        # Make a new iterator of the dataset each epoch
+        data_iterator = iter(dataset)
+        # Reset optimizer and loss each epoch.
+        optimizer.zero_grad()
+        loss = 0
 
         # iterate over all image pairs in the dataset.
-        for index in range(dataset.shape[0]):
-            fixed_tensor = dataset[None, None, index, 0, ...]
-            moving_tensor = dataset[None, None, index, 1, ...]
+        for i in range(len(data_iterator)):
+            # Obtain next image pare from iterator.
+            fixed_tensor, moving_tensor = data_iterator.next()
+            prediction = vxm_model(moving_tensor, fixed_tensor)
 
-            prediction, pos_flow = vxm_model(fixed_tensor, moving_tensor)
-            np.save("predicted_CT_epoch_{}.npy".format(epoch + 1), prediction[0, 0, ...].detach().numpy())
-            print(np.shape(prediction))
-
-            print("calculate losses")
-            loss_function = vxm.losses.MSE()
-            loss = loss_function.loss(moving_tensor, prediction)
+            # Calculate loss for all the loss functions.
+            for j, loss_function in enumerate(losses):
+                loss += loss_function(fixed_tensor, prediction[j]) * loss_weights[j]
             print("loss:", loss)
-            optimizer.zero_grad()
+
+            # After batch_size number of samples, update the weights.
+            if (i + 1) % batch_size == 0:
+                print("updating weights")
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                loss = 0
+
+        # Update weights with de last samples
+        if loss != 0:
             loss.backward()
-            print("done")
             optimizer.step()
-    torch.save(vxm_model,
-               "./saved_models/voxelmorph_model_timestamp_{}.pth".format(datetime.now().strftime("%Y_%m_%d_%H_%M_%S")))
-    print("model saved")
 
-
-train(3)
+    return vxm_model
