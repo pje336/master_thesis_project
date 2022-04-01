@@ -65,7 +65,7 @@ def CT_dataset(patient_id, scan_id, phases, root_path, ct_path_dict):
     """
     for i, phase in enumerate(phases):
 
-        try:  # try to tetrieve the filepath from dict.
+        try:  # try to retrieve the filepath from dict.
             ct_filepath = ct_path_dict[str(patient_id)][scan_id][str(phase)]
         except KeyError:
             print("!Error: Key not found in the filepath dictionary.")
@@ -80,26 +80,66 @@ def CT_dataset(patient_id, scan_id, phases, root_path, ct_path_dict):
     return ct_data
 
 
-def dataset_generator(patient_id, scan_id, m_phases, f_phases, root_path, ct_path_dict, z_max):
+def dataset_generator(patient_id, scan_id, m_phases, f_phases, root_path, ct_path_dict, relative_size, pad):
     """
     Generates dataset object with pairs of CT data of moving images and fixed image.
+    Applies padding or removes some slices from the z-axis
     :param patient_id: [int] patient number
     :param scan_id: [string] ID of the scan
     :param m_phases: [array of ints] array with the phases to put in the array
     :param f_phases: [int] fixed phase
     :param root_path: [string] root path to 4DCT folders.
     :param ct_path_dict: [dict] dictionary with all filepaths to the CT data.
-    :param z_max: [int] max z value for the CT volume. (Change this)
+    :param relative_size: [int] max z value for the CT volume. (Change this)
+    :param pad: [boolean] Add padding instead of reducing the size.
     :return ct_dataset: return a dataset class with fixed and moving tensor pairs.
     """
 
     if len(m_phases) != len(f_phases):
         raise Exception("Length of m_phases array does not match f_phases array.")
 
-    moving_tensor = torch.tensor(CT_dataset(patient_id, scan_id, m_phases, root_path, ct_path_dict)[:, :z_max, ...],
+    moving_tensor = torch.tensor(CT_dataset(patient_id, scan_id, m_phases, root_path, ct_path_dict),
                                  dtype=torch.float)
-    fixed_tensor = torch.tensor(CT_dataset(patient_id, scan_id, f_phases, root_path, ct_path_dict)[:, :z_max, ...],
+    fixed_tensor = torch.tensor(CT_dataset(patient_id, scan_id, f_phases, root_path, ct_path_dict),
                                 dtype=torch.float)
 
-    # Add additional axis to tensor, and make a dataset object from ct_dataset class.
-    return ct_dataset(fixed_tensor[:, None, ...], moving_tensor[:, None, ...])
+    # Adjust the size of the z-axis.
+    if fixed_tensor.shape[1] % (2 ** relative_size) == 0:
+        # if the z-axis length is a multiple of the relative_size
+        # return it as a dataset.
+        return ct_dataset(fixed_tensor[:, None, ...], moving_tensor[:, None, ...])
+
+    elif fixed_tensor.shape[1] < (2 ** relative_size) or pad:
+        # if the z-axis length is smaller than the relative volume
+        # or when 'pad' is true. apply padding.
+        print("Applying padding for  the Z-axis")
+
+        if fixed_tensor.shape[1] < (2 ** relative_size):  # if the z-axis is smaller than relative volume
+            under_size = (2 ** relative_size) - fixed_tensor.shape[1]
+        else:
+            new_size = (fixed_tensor.shape[1] // (2 ** relative_size) + 1) * (2 ** relative_size)
+            under_size = new_size - fixed_tensor.shape[1]
+
+        if under_size % 2 != 0:  # for odd under_size
+            under_size += 1
+            odd = True
+        else:
+            odd = False
+
+        # Apply padding
+        moving_tensor = torch.nn.functional.pad(moving_tensor, (0, 0, 0, 0, under_size // 2, under_size // 2))
+        fixed_tensor = torch.nn.functional.pad(fixed_tensor, (0, 0, 0, 0, under_size // 2, under_size // 2))
+
+        if odd:  # for odd under_size, remove the last slice of zeros
+            return ct_dataset(fixed_tensor[:, None, :-1, ...],
+                              moving_tensor[:, None, :-1, ...])
+        else:
+            return ct_dataset(fixed_tensor[:, None, ...],
+                              moving_tensor[:, None, ...])
+
+    else:
+        print("reducing the size in the Z-axis")
+        oversize = fixed_tensor.shape[1] % (2 ** relative_size)
+        # Add additional axis to tensor, reduce the z-axis  and make a dataset object from ct_dataset class.
+        return ct_dataset(fixed_tensor[:, None, oversize // 2:-(oversize - oversize // 2), ...],
+                          moving_tensor[:, None, oversize // 2:-(oversize - oversize // 2), ...])
