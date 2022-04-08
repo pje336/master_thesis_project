@@ -1,3 +1,8 @@
+"""
+This script can be used to resize dicom files from the original size to a set size.
+This is only done in 2d.
+"""
+
 import os
 
 import numpy as np
@@ -6,10 +11,11 @@ from skimage.transform import resize
 
 from ct_path_dict import ct_path_dict
 
+dimensions_resize = [128, 128]
+
 root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-512/"
-root_path_256 = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
-dimensions_original = [0, -1, 0, -1, 0, 0]
-dimensions_resize = [256, 256]
+root_path_resize = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-{}/".format(
+    str(dimensions_resize[0]))
 
 for patient_id in ct_path_dict.keys():
     for scan_id in ct_path_dict[patient_id].keys():
@@ -19,7 +25,7 @@ for patient_id in ct_path_dict.keys():
             full_path, dirs, files = next(os.walk(root_path + filepath + "/"))
 
             # Make a new dirs in the root_path_256 folder
-            dirName = root_path_256 + filepath
+            dirName = root_path_resize + filepath
             if not os.path.exists(dirName):
                 os.makedirs(dirName)
                 print("Directory ", dirName, " Created ")
@@ -38,5 +44,5 @@ for patient_id in ct_path_dict.keys():
                 # Change the pixeldata to the resized one and update the shape and save it.
                 data_original.PixelData = data_resized.tobytes()
                 data_original.Rows, data_original.Columns = np.shape(data_resized)
-
+                # save the file in the new directory.
                 data_original.save_as(dirName + "/" + file)
