@@ -26,6 +26,7 @@ class IndexTracker:
             exec("self.ax{} = ax".format(i))
             exec("self.X{} = Xs[{}]".format(i, i))
             exec("self.im{} = self.ax{}.imshow(self.X{}[self.ind,:, :])".format(i, i, i))
+            exec("self.im{} = self.ax{}.set_xlabel('x')".format(i, i))
         self.update()
 
     def on_scroll(self, event):
@@ -39,7 +40,7 @@ class IndexTracker:
     def update(self):
         for i in range(self.length):
             exec("self.im{} = self.ax{}.imshow(self.X{}[self.ind, :, :])".format(i, i, i))
-            exec("self.ax{}.set_ylabel('slice %s' % self.ind)".format(i))
+            exec("self.ax{}.set_ylabel('slice %s  y' % self.ind)".format(i))
             exec("self.im{}.axes.figure.canvas.draw()".format(i))
 
 
