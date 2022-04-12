@@ -1,7 +1,8 @@
 import torch
+import numpy as np
 
 
-def train(vxm_model, dataset, epochs, batch_size, learning_rate, losses, loss_weights):
+def train_model(vxm_model, dataset, epochs, batch_size, learning_rate, losses, loss_weights):
     """
     Training routine for voxelmorph model using dataset.
     return trained model
@@ -19,37 +20,60 @@ def train(vxm_model, dataset, epochs, batch_size, learning_rate, losses, loss_we
     torch.backends.cudnn.deterministic = True
     vxm_model.train()
     optimizer = torch.optim.Adam(vxm_model.parameters(), lr=learning_rate)
+    epocht_loss_array = []
 
     for epoch in range(epochs):
+        epoch_loss = 0
         print("epoch {} of {}".format(epoch + 1, epochs))
-        # Make a new iterator of the dataset each epoch
-        data_iterator = iter(dataset)
         # Reset optimizer and loss each epoch.
         optimizer.zero_grad()
         loss = 0
+        batch = 0
 
         # iterate over all image pairs in the dataset.
-        for i in range(len(data_iterator)):
+
+        for fixed_tensor, moving_tensor in dataset:
+            batch += 1
+            print("batch:", batch)
+            loss = 0
+
+            if fixed_tensor.shape[2] < 80 or moving_tensor.shape[2] < 80:
+                print("To small")
+                continue
+            print(moving_tensor.shape)
+            if torch.cuda.is_available():
+                device = torch.device("cuda:0")
+                moving_tensor = moving_tensor.to(device)
+                fixed_tensor = fixed_tensor.to(device)
+
             # Obtain next image pare from iterator.
-            fixed_tensor, moving_tensor = data_iterator.next()
             prediction = vxm_model(moving_tensor, fixed_tensor)
 
+
             # Calculate loss for all the loss functions.
+            print("calculating loss")
             for j, loss_function in enumerate(losses):
                 loss += loss_function(fixed_tensor, prediction[j]) * loss_weights[j]
             print("loss:", loss)
+            epoch_loss += float(loss)
 
-            # After batch_size number of samples, update the weights.
-            if (i + 1) % batch_size == 0:
-                print("updating weights")
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                loss = 0
+            # Remove variables to create more space in ram.
+            del moving_tensor
+            del prediction
+            torch.cuda.empty_cache()
 
-        # Update weights with de last samples
-        if loss != 0:
+            print("updating weights")
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
 
-    return vxm_model
+            del loss
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+
+        epocht_loss_array.append(epoch_loss/len(dataset))
+
+    torch.cuda.empty_cache()
+    return (vxm_model, epocht_loss_array)
