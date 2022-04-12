@@ -12,17 +12,17 @@ class ct_dataset(Dataset):
     Dataset class with fixed and moving tensor pairs each of shape [1,z,x,y]
     """
 
-    def __init__(self, root_path, ct_path_dict, scans_keys, dimensions, shift):
+    def __init__(self, root_path, ct_path_dict, scan_keys, dimensions, shift):
         """
         :param root_path: [string] Root path to 4DCT folders.
         :param ct_path_dict: [dict] dictionary with all file paths to the CT data.
-        :param scans_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+        :param scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
         :param dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
         :param shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
         """
         self.root_path = root_path
         self.ct_path_dict = ct_path_dict
-        self.scans_keys = scans_keys
+        self.scans_keys = scan_keys
         self.dimensions = dimensions
         self.shift = shift
 
@@ -64,7 +64,7 @@ def read_ct_data_file(root_path, filepath, dimensions):
     """
     Imports all CT data by reading all dcm files in the given directory and normalises the data.
     :param root_path: [string] Root path to 4DCT folders.
-    :param filepath: [string] String with the specific folder which holds CT data.
+    :param filepath: [string] String with the specific folder whichdat  holds CT data.
     :param dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
     :return: ct_data_tensor: [4d tensor] 4d pytorch tensor of shape [1,z,x,y] with normalised CT data.
     """
@@ -86,3 +86,30 @@ def read_ct_data_file(root_path, filepath, dimensions):
     ct_data_tensor = torch.tensor(ct_data_cropped, dtype=torch.float)
 
     return ct_data_tensor[None, ...]
+
+def scan_key_generator(dict, patient_ids=None, scan_list=None):
+    """
+    Generates an array keys for each scan. This can be the a specific scan, or a specific patient or all scans.
+    :param dict: [dict] dictionary with all file paths to the CT data.
+    :param patient_ids: array with patients (If None, then all patients)
+    :param scan_list: array with specific scan of patient (If None, then all scans of patient)
+    :return scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+
+    """
+    scan_keys = []
+    if patient_ids is None:
+        patient_ids = dict.keys()
+
+    for patient_id in patient_ids:
+        if scan_list is None:
+            scan_ids = dict[patient_id].keys()
+        else:
+            scan_ids = scan_list
+
+        for scan_id in scan_ids:
+
+            for m_phase in dict[patient_id][scan_id].keys():
+
+                for f_phase in dict[patient_id][scan_id].keys():
+                    scan_keys.append([patient_id, scan_id, [f_phase, m_phase]])
+    return scan_keys
