@@ -7,19 +7,21 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 
-class ct_dataset(Dataset):
-    """
-    Dataset class with fixed and moving tensor pairs each of shape [1,z,x,y]
+class sample_dataset(Dataset):
+    """Dataset class with fixed and moving tensor pairs each of shape [1,z,x,y]. Inherited from torch.utils.data.Dataset
+        Generates a dataset class with fixed and moving tensor pairs.
+        The images can be augmented via a random shift in x and y direction by the shift attribute.
+
+
+        Attributes:
+        root_path: [string] Root path to 4DCT folders.
+         ct_path_dict: [dict] dictionary with all file paths to the dicom files..
+         scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+         dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
+         shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
     """
 
     def __init__(self, root_path, ct_path_dict, scan_keys, dimensions, shift):
-        """
-        :param root_path: [string] Root path to 4DCT folders.
-        :param ct_path_dict: [dict] dictionary with all file paths to the dicom files..
-        :param scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
-        :param dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
-        :param shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
-        """
         self.root_path = root_path
         self.ct_path_dict = ct_path_dict
         self.scans_keys = scan_keys
@@ -27,9 +29,11 @@ class ct_dataset(Dataset):
         self.shift = shift
 
     def __len__(self):
+        """Return the number of samples in the dataset."""
         return len(self.scans_keys)
 
     def __getitem__(self, index):
+        """Gets the fixed and moving tensor by reading the dicom files and applying data augmention"""
         patient_id, scan_id, phases = self.scans_keys[index]
 
         # Get scan data.
@@ -56,6 +60,7 @@ class ct_dataset(Dataset):
         return _fixed, _moving
 
     def shape(self):
+        """ Return the shape of the fixed/moving tensor. """
         return [self.dimensions[1] - self.dimensions[0], self.dimensions[3] - self.dimensions[2],
                 self.dimensions[5] - self.dimensions[4]]
 
@@ -110,17 +115,22 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
     elif len(keys_not_found) != 0:
         raise ValueError("The dicom files for the following keys where not found:", keys_not_found)
 
-    data = ct_dataset(root_path, ct_path_dict, scan_keys, dimensions, shift)
+    data = sample_dataset(root_path, ct_path_dict, scan_keys, dimensions, shift)
     return DataLoader(data, batch_size, shuffle)
 
 
 def read_ct_data_file(root_path, filepath, dimensions):
-    """
-    Imports all CT data by reading all dcm files in the given directory and normalises the data.
-    :param root_path: [string] Root path to 4DCT folders.
-    :param filepath: [string] String with the specific folder whichdat  holds CT data.
-    :param dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
-    :return: ct_data_tensor: [4d tensor] 4d pytorch tensor of shape [1,z,x,y] with normalised CT data.
+    """Imports  CT data by reading all dicom files in the given directory and normalises the data.
+
+
+    Args:
+        root_path: [string] Root path to 4DCT folders.
+        filepath: [string] String with the specific folder whichdat  holds CT data.
+        dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
+
+    Returns:
+        ct_data_tensor: [4d tensor] 4d pytorch tensor of shape [1,z,x,y] with normalised CT data.
+
     """
     # Get all files and paths.
     full_path, dirs, files = next(os.walk(root_path + filepath + "/"))
@@ -142,12 +152,16 @@ def read_ct_data_file(root_path, filepath, dimensions):
 
 
 def scan_key_generator(dictionary, patient_ids=None, scan_list=None):
-    """
-    Generates an array keys for each scan. This can be the a specific scan, or a specific patient or all scans.
-    :param dictionary: [dict] dictionary with all file paths to the dicom files..
-    :param patient_ids: array with patients (If None, then all patients)
-    :param scan_list: array with specific scan of patient (If None, then all scans of patient)
-    :return scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+    """Generates an array with arrays containing keys for the dictionary.
+    One could get the keys for all scans in the dictionary or for a specific patient or a specific scan of a patient.
+
+    Args:
+        dictionary: [dict] dictionary with all file paths to the dicom files..
+        patient_ids: array with patients (If None, then all patients)
+        scan_list: array with specific scan of patient (If None, then all scans of patient)
+
+    Returns:
+            scan_keys: [array]: array with arrays of keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
 
     """
     scan_keys = []
