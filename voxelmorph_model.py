@@ -8,16 +8,21 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
     The average loss of each epoch is added to the epoch_training_loss and epoch_validation_loss arrays.
     The function return the trained model and the epoch_training_loss and epoch_validation_loss arrays.
 
-    :param vxm_model: [torch model] Voxelmorph  model.
-    :param train_dataset: DataLoader of ct_dataset class with fixed and moving image pairs for training.
-    :param validation_dataset: DataLoader of ct_dataset class with fixed and moving image pairs for validation.
-    :param epochs: [int] number of epochs
-    :param learning_rate: [float] Set learning rate for optimiser.
-    :param losses: [array] array of loss functions from voxelmorph
-    :param loss_weights: [array] array with weight for each loss function
-    :return: vxm_model: [torch model] Trained Voxelmorph model
-    :return epoch_training_loss: [1d array] Array with the mean training loss for each epoch.
-    :return epoch_validation_loss: [1d array] Array with the mean validation loss for each epoch.
+   
+    Args:
+        vxm_model: [torch model] Voxelmorph  model.
+        train_dataset: DataLoader of ct_dataset class with fixed and moving image pairs for training.
+        validation_dataset: DataLoader of ct_dataset class with fixed and moving image pairs for validation.
+        epochs: [int] number of epochs
+        learning_rate: [float] Set learning rate for optimiser.
+        losses: [array] array of loss functions from voxelmorph
+        loss_weights: [array] array with weight for each loss function
+
+    Returns:
+        vxm_model: [torch model] Trained Voxelmorph model
+        epoch_training_loss: [1d array] Array with the mean training loss for each epoch.
+        epoch_validation_loss: [1d array] Array with the mean validation loss for each epoch.
+
     """
 
     torch.backends.cudnn.deterministic = True
@@ -54,7 +59,7 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             # Calculate loss for all the loss functions.
             for j, loss_function in enumerate(losses):
                 loss += loss_function(fixed_tensor, prediction[j]) * loss_weights[j]
-            print("epoch {} of {}, Batch: {} : Loss: {}".format(epoch + 1, epochs, batch, float(loss)))
+            print("epoch {} of {}, Batch: {} - Loss: {}".format(epoch + 1, epochs, batch, float(loss)))
 
             epoch_loss += float(loss)
 
@@ -63,7 +68,7 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             del prediction
             torch.cuda.empty_cache()
 
-            print("updating weights")
+            # Apply back propagation
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -92,5 +97,6 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             epoch_validation_loss.append(validation_loss / validation_batches)
             print("validation loss: {}".format(epoch_validation_loss[-1]))
 
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return vxm_model, epoch_training_loss, epoch_validation_loss
