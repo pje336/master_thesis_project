@@ -15,7 +15,7 @@ class ct_dataset(Dataset):
     def __init__(self, root_path, ct_path_dict, scan_keys, dimensions, shift):
         """
         :param root_path: [string] Root path to 4DCT folders.
-        :param ct_path_dict: [dict] dictionary with all file paths to the CT data.
+        :param ct_path_dict: [dict] dictionary with all file paths to the dicom files..
         :param scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
         :param dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
         :param shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
@@ -42,14 +42,14 @@ class ct_dataset(Dataset):
         y_shift = randint(-self.shift[2], self.shift[3])
 
         # This tuple is y,x because pad function is weird. See documentation of torch.nn.functional.pad
-        pad = (abs(y_shift), abs(y_shift),abs(x_shift), abs(x_shift))
+        pad = (abs(y_shift), abs(y_shift), abs(x_shift), abs(x_shift))
 
         # Apply padding, rolling and then cropping to get the shifted image.
         # Note: The dims in roll are switched again, it is all super vague why this is.
-        _fixed = torch.nn.functional.pad(_fixed[0], pad).roll(shifts = (x_shift, y_shift), dims = (2, 1))[None, :,
+        _fixed = torch.nn.functional.pad(_fixed[0], pad).roll(shifts=(x_shift, y_shift), dims=(2, 1))[None, :,
                  pad[2]:self.dimensions[3] + pad[2],
                  pad[0]:self.dimensions[5] + pad[0]]
-        _moving = torch.nn.functional.pad(_moving[0], pad).roll(shifts = (x_shift, y_shift), dims = (2, 1))[None, :,
+        _moving = torch.nn.functional.pad(_moving[0], pad).roll(shifts=(x_shift, y_shift), dims=(2, 1))[None, :,
                   pad[2]:self.dimensions[3] + pad[2],
                   pad[0]:self.dimensions[5] + pad[0]]
 
@@ -59,20 +59,58 @@ class ct_dataset(Dataset):
         return [self.dimensions[1] - self.dimensions[0], self.dimensions[3] - self.dimensions[2],
                 self.dimensions[5] - self.dimensions[4]]
 
-def generate_dataset(scan_keys, root_path, ct_path_dict,  dimensions, shift, batch_size, shuffle = True):
-    """
-    Generates a dataset with a set batch size based on the scan_keys.
-    :param scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
-    :param root_path: [string] Root path to 4DCT folders.
-    :param ct_path_dict: [dict] dictionary with all file paths to the CT data.
-    :param dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
-    :param shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
-    :param batch_size: [int] number of samples in each batch
-    :param shuffle:[Boolean] shuffle the samples when generating batches
-    :return: dataset with batches of scans.
+
+def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batch_size, shuffle=True):
+    """ Generates dataset objects with  batches pairs of fixed_tensor, moving_tensor based on scan_keys.
+    It generates a ct_dataset instance and then makes a dataloader object with the given batch_size.
+    The data pairs are read on the fly when iterating and therefore do not have high memory use.
+
+    First checks if all the scans files from scan_keys are present, otherwise an error is raised.
+
+
+
+    Args:
+        scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+        root_path: [string] Root path to 4DCT folders.
+        ct_path_dict: [dict] dictionary with all file paths to the dicom files..
+        dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
+        shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
+        batch_size: [int] number of samples in each batch
+        shuffle:[Boolean] shuffle the samples when generating batches (True by default)
+
+    Returns: A dataset from DataLoader-object which can be used to load batches with pairs of fixed_tensor, moving_tensor tensors.
+            One could iterate over the dataset as the following:
+            "for fixed_tensor, moving_tensor in  dataset: "
+            Shapes:
+            fixed_tensor: [Batch_size,1,z,x,y]
+            moving_tensor: [Batch_size,1,z,x,y]
+
+
+
+    Raises:
+      ValueError: If the root_path doesn't end with a "/"
+      ValueError: If the length of scan_keys is zero.
+      ValueError: If none of the dicom files from scan_keys can be read
+      ValueError: If some of the dicom files from scan_keys can be read
+
     """
 
-    data = ct_dataset(root_path, ct_path_dict, scan_keys, dimensions,shift)
+    # Checking the root_path and the len of the scan_keys array.
+    if root_path[-1] != "/":
+        raise ValueError("root_path should end with '/'")
+    if len(scan_keys) == 0:
+        raise ValueError("Scan_keys has no objects.")
+
+    # Checking if the files for scan_keys excist. Else, raise an ValueError
+    keys_not_found = scan_key_checker(scan_keys, root_path, ct_path_dict)
+    print(len(keys_not_found), len(scan_keys))
+    if len(keys_not_found) == len(scan_keys):
+        raise ValueError("None of the dicom"
+                         " files found, is the root path correct?")
+    elif len(keys_not_found) != 0:
+        raise ValueError("The dicom files for the following keys where not found:", keys_not_found)
+
+    data = ct_dataset(root_path, ct_path_dict, scan_keys, dimensions, shift)
     return DataLoader(data, batch_size, shuffle)
 
 
@@ -86,7 +124,6 @@ def read_ct_data_file(root_path, filepath, dimensions):
     """
     # Get all files and paths.
     full_path, dirs, files = next(os.walk(root_path + filepath + "/"))
-    # read a single file to get the dimensions.
     data = pydicom.dcmread(full_path + files[0])
 
     # Setup a empty array with correct shape (z,x,y)
@@ -103,10 +140,11 @@ def read_ct_data_file(root_path, filepath, dimensions):
 
     return ct_data_tensor[None, ...]
 
-def scan_key_generator(dict, patient_ids=None, scan_list=None):
+
+def scan_key_generator(dictionary, patient_ids=None, scan_list=None):
     """
     Generates an array keys for each scan. This can be the a specific scan, or a specific patient or all scans.
-    :param dict: [dict] dictionary with all file paths to the CT data.
+    :param dictionary: [dict] dictionary with all file paths to the dicom files..
     :param patient_ids: array with patients (If None, then all patients)
     :param scan_list: array with specific scan of patient (If None, then all scans of patient)
     :return scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
@@ -114,18 +152,48 @@ def scan_key_generator(dict, patient_ids=None, scan_list=None):
     """
     scan_keys = []
     if patient_ids is None:
-        patient_ids = dict.keys()
+        patient_ids = dictionary.keys()
 
     for patient_id in patient_ids:
         if scan_list is None:
-            scan_ids = dict[patient_id].keys()
+            scan_ids = dictionary[patient_id].keys()
         else:
             scan_ids = scan_list
 
         for scan_id in scan_ids:
 
-            for m_phase in dict[patient_id][scan_id].keys():
+            for m_phase in dictionary[patient_id][scan_id].keys():
 
-                for f_phase in dict[patient_id][scan_id].keys():
+                for f_phase in dictionary[patient_id][scan_id].keys():
                     scan_keys.append([patient_id, scan_id, [f_phase, m_phase]])
     return scan_keys
+
+
+def scan_key_checker(scan_keys, root_path, dictionary):
+    """Checks if the dicom files for each scan key exists.
+    If it does not it will be added to keys_not_found not found array.
+
+
+    Args:
+        scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+        root_path: [string] Root path to 4DCT folders.
+        dictionary: [dict] dictionary with all file paths to the dicom files.*.
+
+    Returns:
+        keys_not_found: Array with scan keys of which the dicom files where not found.
+
+    """
+    keys_not_found = []
+
+    for i, [patient, scan, phases] in enumerate(scan_keys):
+
+        for phase in phases:
+            filepath = dictionary[patient][scan][phase]
+
+            try:
+                next(os.walk(root_path + filepath + "/"))
+            except:
+                keys_not_found.append(scan_keys[i])
+                break  # we do not need to check the other phase anymore
+
+    return keys_not_found
