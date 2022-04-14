@@ -4,7 +4,7 @@ from random import randint
 import numpy as np
 import pydicom
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 
 class ct_dataset(Dataset):
@@ -58,6 +58,22 @@ class ct_dataset(Dataset):
     def shape(self):
         return [self.dimensions[1] - self.dimensions[0], self.dimensions[3] - self.dimensions[2],
                 self.dimensions[5] - self.dimensions[4]]
+
+def generate_dataset(scan_keys, root_path, ct_path_dict,  dimensions, shift, batch_size, shuffle = True):
+    """
+    Generates a dataset with a set batch size based on the scan_keys.
+    :param scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+    :param root_path: [string] Root path to 4DCT folders.
+    :param ct_path_dict: [dict] dictionary with all file paths to the CT data.
+    :param dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
+    :param shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
+    :param batch_size: [int] number of samples in each batch
+    :param shuffle:[Boolean] shuffle the samples when generating batches
+    :return: dataset with batches of scans.
+    """
+
+    data = ct_dataset(root_path, ct_path_dict, scan_keys, dimensions,shift)
+    return DataLoader(data, batch_size, shuffle)
 
 
 def read_ct_data_file(root_path, filepath, dimensions):
