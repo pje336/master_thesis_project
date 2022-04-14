@@ -7,18 +7,18 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 
-class sample_dataset(Dataset):
+class SampleDataset(Dataset):
     """Dataset class with fixed and moving tensor pairs each of shape [1,z,x,y]. Inherited from torch.utils.data.Dataset
         Generates a dataset class with fixed and moving tensor pairs.
         The images can be augmented via a random shift in x and y direction by the shift attribute.
 
 
-        Attributes:
-        root_path: [string] Root path to 4DCT folders.
-         ct_path_dict: [dict] dictionary with all file paths to the dicom files..
-         scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
-         dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
-         shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
+       Attributes:
+            root_path: [string] Root path to 4DCT folders.
+            ct_path_dict: [dict] dictionary with all file paths to the dicom files..
+            scan_keys: [array]: array with keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
+            dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
+            shift: [1d array] array with max up and down shift [x_down,x_up,y_down,y_up] (can be zeros)
     """
 
     def __init__(self, root_path, ct_path_dict, scan_keys, dimensions, shift):
@@ -93,10 +93,10 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
 
 
     Raises:
-      ValueError: If the root_path doesn't end with a "/"
-      ValueError: If the length of scan_keys is zero.
-      ValueError: If none of the dicom files from scan_keys can be read
-      ValueError: If some of the dicom files from scan_keys can be read
+        ValueError: If the root_path doesn't end with a "/"
+        ValueError: If the length of scan_keys is zero.
+        ValueError: If none of the dicom files from scan_keys can be read
+        ValueError: If some of the dicom files from scan_keys can be read
 
     """
 
@@ -115,7 +115,7 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
     elif len(keys_not_found) != 0:
         raise ValueError("The dicom files for the following keys where not found:", keys_not_found)
 
-    data = sample_dataset(root_path, ct_path_dict, scan_keys, dimensions, shift)
+    data = SampleDataset(root_path, ct_path_dict, scan_keys, dimensions, shift)
     return DataLoader(data, batch_size, shuffle)
 
 
