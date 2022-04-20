@@ -1,7 +1,9 @@
 import torch
 
+from write_to_file import write_file
 
-def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_rate, losses, loss_weights):
+
+def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_rate, losses, loss_weights, file_path):
     """
     Training routine for voxelmorph model using dataset.
     For each epoch the model is trained on the train_dataset and then is validated on the validation_dataset.
@@ -96,6 +98,11 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
 
             epoch_validation_loss.append(validation_loss / validation_batches)
             print("validation loss: {}".format(epoch_validation_loss[-1]))
+
+        # Save the model
+        torch.save(vxm_model, file_path + "voxelmorph_model_epoch_{}.pth".format(epoch))
+        write_file(file_path, "training_loss.txt", str(epoch_training_loss))
+        write_file(file_path, "validation_loss.txt", str(epoch_validation_loss))
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
