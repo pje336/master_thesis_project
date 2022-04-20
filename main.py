@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from random import sample
 
 import voxelmorph
 from ct_path_dict import ct_path_dict
 from dataset_generator import *
-from voxelmorph_model import train_model
+from train_model import train_model
 from write_to_file import *
 
 # .\venv\Scripts\activate
@@ -37,7 +37,7 @@ if torch.cuda.is_available():
 # train model
 if train:
     file_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_{}/".format(
-        datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))
+        datetime.now(timezone.utc).strftime("%Y_%m_%d_%H_%M_%S"))
 
     patient_id = ["107"]
     scan_id_training = ["06-02-1999-p4-89680"]
@@ -58,10 +58,10 @@ if train:
     validation_set = generate_dataset(random_validation_keys, root_path, ct_path_dict, dimensions, shift, batch_size)
 
     training_parameters_string = training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights,
-                                                               patient_id, scan_id_training,
-                                                               scan_id_validation, validation_batches)
+                                                               patient_id, scan_id_training, scan_id_validation,
+                                                               validation_batches, nb_features, data_shape)
 
-    write_file(file_path, "training_parameters.txt", training_parameters_string)
+    write_string_to_file(file_path, "training_parameters.txt", training_parameters_string)
 
     trained_model, training_loss, validation_loss = train_model(model, training_set, validation_set,
                                                                 epochs, learning_rate, losses, loss_weights, file_path)
