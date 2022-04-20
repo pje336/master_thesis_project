@@ -1,9 +1,9 @@
 import torch
+from write_to_file import write_string_to_file
 
-from write_to_file import write_file
 
-
-def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_rate, losses, loss_weights, file_path):
+def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_rate, losses, loss_weights,
+                saving_file_path):
     """
     Training routine for voxelmorph model using dataset.
     For each epoch the model is trained on the train_dataset and then is validated on the validation_dataset.
@@ -19,6 +19,7 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
         learning_rate: [float] Set learning rate for optimiser.
         losses: [array] array of loss functions from voxelmorph
         loss_weights: [array] array with weight for each loss function
+        saving_file_path: [string] String with the filepath to the folder to save the model and text files.
 
     Returns:
         vxm_model: [torch model] Trained Voxelmorph model
@@ -100,9 +101,10 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             print("validation loss: {}".format(epoch_validation_loss[-1]))
 
         # Save the model
-        torch.save(vxm_model, file_path + "voxelmorph_model_epoch_{}.pth".format(epoch))
-        write_file(file_path, "training_loss.txt", str(epoch_training_loss))
-        write_file(file_path, "validation_loss.txt", str(epoch_validation_loss))
+        torch.save(vxm_model.state_dict(), saving_file_path + "voxelmorph_model_epoch_{}.pth".format(epoch))
+        torch.save(optimizer.state_dict(), saving_file_path + "optimiser_epoch_{}.pth".format(epoch))
+        write_string_to_file(saving_file_path, "training_loss.txt", str(epoch_training_loss))
+        write_string_to_file(saving_file_path, "validation_loss.txt", str(epoch_validation_loss))
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
