@@ -1,17 +1,24 @@
-import numpy as np
-from data_importer import import_CT_data
-from slice_viewer import slice_viewer
-import torch
+def read_model_parameters_from_file(model_path, filename="training_parameters.txt"):
+    """
+    Read the model parameters from the file training_parameters.txt and convert the values into variables.
+    Args:
+        model_path: [string] path to the folder with trained model.
+        filename: [string]  filename of file with training parameters, by default is "training_parameters.txt"
 
-model_path = "./saved_models/voxelmorph_model_timestamp_2022_03_24_14_53_16.pth"
-path_drive = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung/"
-path_CT_0  = "115_HM10395/05-25-2000-p4-95872/1.000000-P4P115S302I00003 Gated 0.0A-96968/"
-path_CT_50 = "110_HM10395/10-14-1999-p4-65942/1.000000-P4P110S300I00008 Gated 50.0A-33388/"
+    Returns: learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training, scan_id_validation, \
+           validation_batches, nb_features, data_shape
 
-CT_data_0 = import_CT_data(path_drive, path_CT_0)
-CT_data50 = import_CT_data(path_drive, path_CT_50)
-print(np.shape(CT_data_0))
-# model = torch.load(model_path)
+    """
+    text = open(model_path + filename).read()  # read the file
+    exec(text[text.find("\n") + 1:], globals())  # execute the text to set the variable values.
+    return learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training, scan_id_validation, \
+           validation_batches, nb_features, data_shape
+
+
+model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_2022_04_20_10_56_34/"
+
+learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training, scan_id_validation, validation_batches, \
+nb_features, data_shape = read_model_parameters_from_file(model_path)
 #
 # x_data = torch.tensor(CT_data_0[np.newaxis,np.newaxis,  ...], dtype=torch.float)
 # y_data = torch.tensor(CT_data_90[np.newaxis,np.newaxis, ...], dtype=torch.float)
