@@ -2,11 +2,11 @@ import numpy as np
 import torch
 
 import voxelmorph
-from ct_path_dict import ct_path_dict
+from CT_path_dict.ct_path_dict import ct_path_dict
 from dataset_generator import scan_key_generator, generate_dataset
 
 
-def read_model_parameters_from_file(model_path, filename="training_parameters.txt"):
+def read_model_parameters_from_file(model_path:str, filename:str="training_parameters.txt"):
     """
     Read the model parameters from the file training_parameters.txt and convert the values into variables.
     Args:
@@ -21,6 +21,7 @@ def read_model_parameters_from_file(model_path, filename="training_parameters.tx
     exec(text[text.find("\n") + 1:], globals())  # execute the text to set the variable values.
     return learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training, scan_id_validation, \
            validation_batches, nb_features, data_shape
+
 
 # Filepaths for the CT data and the trained model.
 root_path_data = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"

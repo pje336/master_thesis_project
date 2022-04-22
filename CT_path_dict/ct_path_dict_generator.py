@@ -9,11 +9,11 @@ import os
 dictionary = {}
 patient_list = []
 scan_list = []
-path_drive = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung/"
+root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung/"
 # iterate through all sub folders
-for path, subdirs, files in os.walk(path_drive):
+for path, subdirs, files in os.walk(root_path):
     # split the filepath
-    splitted_path = path[len(path_drive):].split('\\')
+    splitted_path = path[len(root_path):].split('\\')
 
     # check if it is folder with CT data and if the number of files is larger than 1.
     if len(splitted_path) >= 3 and len(next(os.walk(path))[-1]) > 1:
@@ -34,7 +34,7 @@ for path, subdirs, files in os.walk(path_drive):
             dictionary[patient_number][scan_id] = {}
             scan_list.append(scan_id)
         # Insert filepath into the dict.
-        dictionary[patient_number][scan_id][phase] = path[len(path_drive):].replace('\\', "/")
+        dictionary[patient_number][scan_id][phase] = path[len(root_path):].replace('\\', "/")
 
 # print the dict in json format.
 print(json.dumps(dictionary, sort_keys=False, indent=4))

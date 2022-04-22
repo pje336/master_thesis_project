@@ -9,7 +9,7 @@ import numpy as np
 import pydicom
 from skimage.transform import resize
 
-from ct_path_dict import ct_path_dict
+from CT_path_dict.ct_path_dict import ct_path_dict
 
 dimensions_resize = [128, 128]
 
