@@ -91,6 +91,10 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             validation_batches = 0
             validation_loss = 0
             for fixed_tensor, moving_tensor in validation_dataset:
+                if torch.cuda.is_available():
+                    device = torch.device("cuda:0")
+                    moving_tensor = moving_tensor.to(device)
+                    fixed_tensor = fixed_tensor.to(device)
                 validation_batches += 1
                 loss_total = 0
                 prediction = vxm_model(moving_tensor, fixed_tensor)
