@@ -38,14 +38,14 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
         epoch_loss = 0
         # Reset optimizer and loss each epoch.
         optimizer.zero_grad()
-        loss = 0
+        loss_total = 0
         batch = 0
 
         # iterate over all image pairs in the dataset.
 
         for fixed_tensor, moving_tensor in train_dataset:
             batch += 1
-            loss = 0
+            loss_total = 0
 
             if fixed_tensor.shape[2] < 80 or moving_tensor.shape[2] < 80:
                 print("To small")
@@ -60,11 +60,14 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             prediction = vxm_model(moving_tensor, fixed_tensor)
 
             # Calculate loss for all the loss functions.
+            loss_array = []
             for j, loss_function in enumerate(losses):
-                loss += loss_function(fixed_tensor, prediction[j]) * loss_weights[j]
-            print("epoch {} of {}, Batch: {} - Loss: {}".format(epoch + 1, epochs, batch, float(loss)))
+                loss = loss_function(fixed_tensor, prediction[j]) * loss_weights[j]
+                loss_array.append(float(loss))
+                loss_total += loss
+            print("epoch {} of {}, Batch: {} - Loss: {}".format(epoch + 1, epochs, batch, loss_array))
 
-            epoch_loss += float(loss)
+            epoch_loss += float(loss_total)
 
             # Remove variables to create more space in ram.
             del moving_tensor
@@ -72,11 +75,11 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             torch.cuda.empty_cache()
 
             # Apply back propagation
-            loss.backward()
+            loss_total.backward()
             optimizer.step()
             optimizer.zero_grad()
 
-            del loss
+            del loss_total
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -89,13 +92,13 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
             validation_loss = 0
             for fixed_tensor, moving_tensor in validation_dataset:
                 validation_batches += 1
-                loss = 0
+                loss_total = 0
                 prediction = vxm_model(moving_tensor, fixed_tensor)
 
                 # Calculate loss for all the loss functions.
                 for j, loss_function in enumerate(losses):
-                    loss += loss_function(fixed_tensor, prediction[j]) * loss_weights[j]
-                validation_loss += float(loss)
+                    loss_total += loss_function(fixed_tensor, prediction[j]) * loss_weights[j]
+                validation_loss += float(loss_total)
 
             epoch_validation_loss.append(validation_loss / validation_batches)
             print("validation loss: {}".format(epoch_validation_loss[-1]))
