@@ -1,5 +1,5 @@
 import torch
-from write_to_file import write_string_to_file
+from write_parameters_to_file import write_string_to_file
 
 
 def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_rate, losses, loss_weights,
