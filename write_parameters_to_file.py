@@ -1,7 +1,8 @@
 import os
 
+
 def training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training,
-                                  scan_id_validation, validation_batches, nb_features, data_shape):
+                                  scan_id_validation, validation_batches, nb_features, data_shape, int_downsize):
     """
     Function to generate a string with the important training parameters of the network.
     Returns: A string with the information.
@@ -18,7 +19,8 @@ scan_id_training = {scan_id_training}
 scan_id_validation = {scan_id_validation}
 validation_batches = {validation_batches}
 nb_features = {nb_features}
-data_shape = {data_shape}"""
+data_shape = {data_shape}
+int_downsize = {int_downsize}"""
     return text
 
 
@@ -40,4 +42,3 @@ def write_string_to_file(file_path, file_name, text):
         file.write(text)
 
     return None
-

@@ -25,12 +25,13 @@ loss_weights = [0.5, 0.5, 0.01]
 learning_rate = 1e-3
 epochs = 50
 batch_size = 2
+int_downsize = 1
 
 print("Shape of dataset:", data_shape)
 
 train = True
 
-model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=1, bidir=True)
+model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True)
 if torch.cuda.is_available():
     model.cuda()  # If possible move model to GPU.
 
@@ -59,7 +60,7 @@ if train:
 
     training_parameters_string = training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights,
                                                                patient_id, scan_id_training, scan_id_validation,
-                                                               validation_batches, nb_features, data_shape)
+                                                               validation_batches, nb_features, data_shape, int_downsize)
 
     write_string_to_file(file_path, "training_parameters.txt", training_parameters_string)
 

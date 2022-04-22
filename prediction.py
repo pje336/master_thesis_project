@@ -20,21 +20,21 @@ def read_model_parameters_from_file(model_path:str, filename:str="training_param
     text = open(model_path + filename).read()  # read the file
     exec(text[text.find("\n") + 1:], globals())  # execute the text to set the variable values.
     return learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training, scan_id_validation, \
-           validation_batches, nb_features, data_shape
+           validation_batches, nb_features, data_shape, int_downsize
 
 
 # Filepaths for the CT data and the trained model.
 root_path_data = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
-trained_model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_2022_04_20_10_56_34/"
+trained_model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_2022_04_22_08_53_18/"
 trained_model_dict_name = "voxelmorph_model_epoch_0.pth"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Obtain training parameters.
 learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training, scan_id_validation, validation_batches, \
-nb_features, data_shape = read_model_parameters_from_file(trained_model_path)
+nb_features, data_shape, int_downsize = read_model_parameters_from_file(trained_model_path)
 
 # Make the model and load the weights.
-model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=1, bidir=True)
+model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True)
 model.load_state_dict(torch.load(trained_model_path + trained_model_dict_name))
 model.to(device)
 model.eval()
