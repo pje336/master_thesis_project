@@ -13,7 +13,6 @@ learning_rate = {learning_rate}
 epochs = {epochs}
 batch_size = {batch_size}
 loss_weights = {loss_weights}
-
 patient_id = {patient_id}
 scan_id_training = {scan_id_training}
 scan_id_validation = {scan_id_validation}
