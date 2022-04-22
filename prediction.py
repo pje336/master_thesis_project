@@ -6,7 +6,7 @@ from CT_path_dict.ct_path_dict import ct_path_dict
 from dataset_generator import scan_key_generator, generate_dataset
 
 
-def read_model_parameters_from_file(model_path:str, filename:str="training_parameters.txt"):
+def read_model_parameters_from_file(model_path: str, filename: str = "training_parameters.txt"):
     """
     Read the model parameters from the file training_parameters.txt and convert the values into variables.
     Args:
@@ -26,7 +26,7 @@ def read_model_parameters_from_file(model_path:str, filename:str="training_param
 # Filepaths for the CT data and the trained model.
 root_path_data = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
 trained_model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_2022_04_22_08_53_18/"
-trained_model_dict_name = "voxelmorph_model_epoch_0.pth"
+trained_model_dict_name = "voxelmorph_model_epoch_3.pth"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Obtain training parameters.
@@ -35,9 +35,10 @@ nb_features, data_shape, int_downsize = read_model_parameters_from_file(trained_
 
 # Make the model and load the weights.
 model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True)
-model.load_state_dict(torch.load(trained_model_path + trained_model_dict_name))
+model.load_state_dict(torch.load(trained_model_path + trained_model_dict_name, map_location=device))
 model.to(device)
 model.eval()
+print("Model imported")
 
 # Parameters for evaluation dataset
 patient_id_evaluation = ["107"]
