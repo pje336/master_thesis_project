@@ -57,7 +57,7 @@ class SampleDataset(Dataset):
                   pad[2]:self.dimensions[3] + pad[2],
                   pad[0]:self.dimensions[5] + pad[0]]
 
-        return _fixed, _moving
+        return _fixed, _moving, [self.scans_keys[index]]
 
     def shape(self):
         """ Return the shape of the fixed/moving tensor. """
