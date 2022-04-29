@@ -25,7 +25,7 @@ loss_weights = [0.5, 0.5, 0.01]
 learning_rate = 1e-3
 epochs = 50
 batch_size = 2
-int_downsize = 1
+int_downsize = 2
 
 print("Shape of dataset:", data_shape)
 
