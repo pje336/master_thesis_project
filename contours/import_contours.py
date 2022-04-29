@@ -1,10 +1,16 @@
+from CT_path_dict.ct_path_dict import *
+
 from contours.contour import *
 from slice_viewer import slice_viewer
-import cv2 as cv
+
+root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-512/"
+patient_id = "107"
+scan_id = "06-02-1999-p4-89680"
+phase = "50"
 
 
-path_images ='C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/test/1.000000-P4P107S300I00003 Gated 0.0A-97958'
-path_contour ='C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/test/1.000000-P4P107S300I00003 Gated 0.0A-388.1'
+path_images = root_path +  ct_path_dict[patient_id][scan_id][phase]
+path_contour = root_path + contour_dict[patient_id][scan_id][phase]
 
 index = 2
 

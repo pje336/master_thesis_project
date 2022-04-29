@@ -1,18 +1,18 @@
 # This file was taken from the github repository https://github.com/KeremTurgutlu/dicom-contour
 
 
-import pydicom as dicom
-import numpy as np
-from scipy.sparse import csc_matrix
-import matplotlib.pyplot as plt
-import scipy.ndimage as scn
-from collections import defaultdict
-import os
-import shutil
-import operator
-import warnings
 import math
-import json
+import operator
+import os
+import warnings
+from collections import defaultdict
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pydicom as dicom
+import scipy.ndimage as scn
+from scipy.sparse import csc_matrix
+
 
 def get_contour_file(path):
     """
@@ -41,6 +41,7 @@ def get_contour_file(path):
     if contour_file is None: print("No contour file found in directory")
     return contour_file
 
+
 def get_roi_names(contour_data):
     """
     This function will return the names of different contour data,
@@ -53,13 +54,15 @@ def get_roi_names(contour_data):
     roi_seq_names = [roi_seq.ROIName for roi_seq in list(contour_data.StructureSetROISequence)]
     return roi_seq_names
 
-def coord2pixels(contour_dataset, path):
+
+def coord2pixels(contour_dataset, path, uid_dict):
     """
     Given a contour dataset (a DICOM class) and path that has .dcm files of
     corresponding images. This function will return img_arr and contour_arr (2d image and contour pixels)
     Inputs
         contour_dataset: DICOM dataset class that is identified as (3006, 0016)  Contour Image Sequence
         path: string that tells the path of all DICOM images
+        uid_dict: dictionary to convert SOPInstanceUID to filenames
     Return
         img_arr: 2d np.array of image with pixel intensities
         contour_arr: 2d np.array of contour with 0 and 1 labels
@@ -68,18 +71,18 @@ def coord2pixels(contour_dataset, path):
     contour_coord = contour_dataset.ContourData
 
     # x, y, z coordinates of the contour in mm
-    x0 = contour_coord[len(contour_coord)-3]
-    y0 = contour_coord[len(contour_coord)-2]
-    z0 = contour_coord[len(contour_coord)-1]
+    x0 = contour_coord[len(contour_coord) - 3]
+    y0 = contour_coord[len(contour_coord) - 2]
+    z0 = contour_coord[len(contour_coord) - 1]
     coord = []
     for i in range(0, len(contour_coord), 3):
         x = contour_coord[i]
-        y = contour_coord[i+1]
-        z = contour_coord[i+2]
-        l = math.sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0) + (z-z0)*(z-z0))
-        l = math.ceil(l*2)+1
-        for j in range(1, l+1):
-          coord.append([(x-x0)*j/l+x0, (y-y0)*j/l+y0, (z-z0)*j/l+z0])
+        y = contour_coord[i + 1]
+        z = contour_coord[i + 2]
+        l = math.sqrt((x - x0) * (x - x0) + (y - y0) * (y - y0) + (z - z0) * (z - z0))
+        l = math.ceil(l * 2) + 1
+        for j in range(1, l + 1):
+            coord.append([(x - x0) * j / l + x0, (y - y0) * j / l + y0, (z - z0) * j / l + z0])
         x0 = x
         y0 = y
         z0 = z
@@ -87,9 +90,7 @@ def coord2pixels(contour_dataset, path):
     # extract the image id corresponding to given countour
     # read that dicom file (assumes filename = sopinstanceuid.dcm)
     SOPInstanceUID = contour_dataset.ContourImageSequence[0].ReferencedSOPInstanceUID
-    json_file = open(path+"data.json", "r")
-    UID_dict = json.load(json_file)
-    img_ID = UID_dict[SOPInstanceUID]
+    img_ID = uid_dict[SOPInstanceUID]
 
     img = dicom.read_file(path + img_ID)
     img_arr = img.pixel_array
@@ -109,30 +110,33 @@ def coord2pixels(contour_dataset, path):
     for i, j in list(set(pixel_coords)):
         rows.append(i)
         cols.append(j)
-    contour_arr = csc_matrix((np.ones_like(rows), (rows, cols)), dtype=np.int8, shape=(img_arr.shape[0], img_arr.shape[1])).toarray()
+    contour_arr = csc_matrix((np.ones_like(rows), (rows, cols)), dtype=np.int8,
+                             shape=(img_arr.shape[0], img_arr.shape[1])).toarray()
 
     return img_arr, contour_arr, img_ID
 
 
-def cfile2pixels(file, path, ROIContourSeq=0):
+def cfile2pixels(contour_path, path, uid_dict, ROIContourSeq=0):
     """
     Given a contour file and path of related images return pixel arrays for contours
     and their corresponding images.
     Inputs
-        file: filename of contour
+        file: filepath of contour
         path: path that has contour and image files
         ROIContourSeq: tells which sequence of contouring to use default 0 (RTV)
+        uid_dict: dictionary to convert SOPInstanceUID to filenames
     Return
         contour_iamge_arrays: A list which have pairs of img_arr and contour_arr for a given contour file
     """
     # handle `/` missing
     if path[-1] != '/': path += '/'
-    f = dicom.read_file(path + file)
+    f = dicom.read_file(contour_path)
     # index 0 means that we are getting RTV information
     RTV = f.ROIContourSequence[ROIContourSeq]
     # get contour datasets in a list
     contours = [contour for contour in RTV.ContourSequence]
-    img_contour_arrays = [coord2pixels(cdata, path) for cdata in contours]  # list of img_arr, contour_arr, im_id
+    img_contour_arrays = [coord2pixels(cdata, path, uid_dict) for cdata in
+                          contours]  # list of img_arr, contour_arr, im_id
 
     # debug: there are multiple contours for the same image indepently
     # sum contour arrays and generate new img_contour_arrays
@@ -165,12 +169,13 @@ def plot2dcontour(img_arr, contour_arr, figsize=(20, 20)):
     plt.show()
 
 
-def slice_order(path):
+def slice_order(path, uid_dict):
     """
     Takes path of directory that has the DICOM images and returns
     a ordered list that has ordered filenames
     Inputs
         path: path that has .dcm images
+        uid_dict: dictionary to convert SOPInstanceUID to filenames
     Returns
         ordered_slices: ordered tuples of filename and z-position
     """
@@ -185,27 +190,26 @@ def slice_order(path):
             slices.append(f)
         except:
             continue
-    json_file = open(path+"data.json", "r")
-    UID_dict = json.load(json_file)
 
-    slice_dict = {UID_dict[s.SOPInstanceUID]: s.ImagePositionPatient[-1] for s in slices}
+    slice_dict = {uid_dict[s.SOPInstanceUID]: s.ImagePositionPatient[-1] for s in slices}
     ordered_slices = sorted(slice_dict.items(), key=operator.itemgetter(1))
     return ordered_slices
 
 
-def get_contour_dict(contour_file, path, index):
+def get_contour_dict(contour_path, path_images, index, uid_dict):
     """
     Returns a dictionary as k: img fname, v: [corresponding img_arr, corresponding contour_arr]
     Inputs:
-        contour_file: .dcm contour file name
-        path: path which has contour and image files
+        contour_path: filepath to .dcm contour file.
+        path: path which has image files
+        uid_dict: dictionary to convert SOPInstanceUID to filenames
     Returns:
         contour_dict: dictionary with 2d np.arrays
     """
     # handle `/` missing
-    if path[-1] != '/': path += '/'
+    if path_images[-1] != '/': path_images += '/'
     # img_arr, contour_arr, img_fname
-    contour_list = cfile2pixels(contour_file, path, index)
+    contour_list = cfile2pixels(contour_path, path_images, uid_dict, index)
 
     contour_dict = {}
     for img_arr, contour_arr, img_id in contour_list:
@@ -213,7 +217,8 @@ def get_contour_dict(contour_file, path, index):
 
     return contour_dict
 
-def get_data(path_images,path_contour, index):
+
+def get_data(path_images, path_contour, index):
     """
     Generate image array and contour array
     Inputs:
@@ -221,16 +226,21 @@ def get_data(path_images,path_contour, index):
         contour_file: structure file
         index (int): index of the structure
     """
+    # uid_dict: dictionary to convert SOPInstanceUID to filenames
+    uid_dict = generate_uid_dict(path_images)
+
     images = []
     contours = []
     # handle `/` missing
     if path_images[-1] != '/': path_images += '/'
+    if path_contour[-1] != '/': path_contour += '/'
+
     # get contour file
-    contour_file = get_contour_file(path_contour)
+    contour_file = path_contour + get_contour_file(path_contour)
     # get slice orders
-    ordered_slices = slice_order(path_images)
+    ordered_slices = slice_order(path_images, uid_dict)
     # get contour dict
-    contour_dict = get_contour_dict(contour_file, path_images, index)
+    contour_dict = get_contour_dict(contour_file, path_images, index,  uid_dict)
 
     for k,v in ordered_slices:
         # get data from contour dict
@@ -246,6 +256,7 @@ def get_data(path_images,path_contour, index):
 
     return np.array(images), np.array(contours)
 
+
 def get_mask(path_images, path_contour, index, filled=True):
     """
     Generate image array and contour array
@@ -255,17 +266,19 @@ def get_mask(path_images, path_contour, index, filled=True):
         index (int): index of the structure
     """
     contours = []
-
+    uid_dict = generate_uid_dict(path_images)
     # handle `/` missing
     if path_images[-1] != '/': path_images += '/'
+    if path_contour[-1] != '/': path_contour += '/'
     # get slice orders
-    ordered_slices = slice_order(path_images)
+    ordered_slices = slice_order(path_images, uid_dict)
     # get contour file
-    contour_file = get_contour_file(path_contour)
-    # get contour dict
-    contour_dict = get_contour_dict(contour_file, path_images, index)
+    contour_file = path_contour + get_contour_file(path_contour)
 
-    for k,v in ordered_slices:
+    # get contour dict
+    contour_dict = get_contour_dict(contour_file, path_images, index, uid_dict)
+
+    for k, v in ordered_slices:
         # get data from contour dict
         if k in contour_dict:
             y = contour_dict[k][1]
@@ -273,11 +286,12 @@ def get_mask(path_images, path_contour, index, filled=True):
             contours.append(y)
         # get data from dicom.read_file
         else:
-            img_arr = dicom.read_file(path_images + k ).pixel_array
+            img_arr = dicom.read_file(path_images + k).pixel_array
             contour_arr = np.zeros_like(img_arr)
             contours.append(contour_arr)
 
     return np.array(contours)
+
 
 def create_image_mask_files(path, contour_file, index, img_format='png'):
     """
@@ -300,3 +314,20 @@ def create_image_mask_files(path, contour_file, index, img_format='png'):
     for i in range(len(X)):
         plt.imsave(new_path + f'/images/image_{i}.{img_format}', X[i])
         plt.imsave(new_path + f'/masks/mask_{i}.{img_format}', Y[i])
+
+
+def generate_uid_dict(path):
+    """
+    Generate a dictionary to convert SOPInstanceUID to filenames
+    Args:
+        path: path of the the directory that has DICOM files in it
+
+    Returns: uid_dict: dictionary to convert SOPInstanceUID to filenames
+
+    """
+    full_path, dirs, files = next(os.walk(path))
+    uid_dict = {}
+    for file in files:
+        data = dicom.dcmread(path + '/' + file)
+        uid_dict[data.SOPInstanceUID] = file
+    return uid_dict
