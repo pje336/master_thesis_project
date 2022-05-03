@@ -145,7 +145,7 @@ def read_ct_data_file(root_path, filepath, dimensions):
 
     # normalise data
     ct_data_cropped = ct_data[dimensions[0]:dimensions[1], dimensions[2]:dimensions[3], dimensions[4]:dimensions[5]]
-    ct_data_cropped /= np.max(ct_data_cropped)
+    ct_data_cropped /= 4000
     ct_data_tensor = torch.tensor(ct_data_cropped, dtype=torch.float)
 
     return ct_data_tensor[None, ...]
