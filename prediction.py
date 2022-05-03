@@ -65,7 +65,7 @@ def deform_contour(flow_field, scan_key, root_path, ct_path_dict, contour_dict, 
 
         # apply transformation to get warped_contour
         transformer = SpatialTransformer(np.shape(mask_moving), mode = 'nearest')
-        warped_contour[index] = transformer(mask_moving_tensor, flow_field_upsampled)cd
+        warped_contour[index] = transformer(mask_moving_tensor, flow_field_upsampled)
 
         dice_score[index] = voxelmorph.py.utils.dice(warped_contour[index].detach().numpy() , mask_fixed_tensor.detach().numpy())[0]
 
