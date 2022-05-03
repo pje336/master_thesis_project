@@ -1,4 +1,4 @@
-# This file was taken from the github repository https://github.com/KeremTurgutlu/dicom-contour
+# This file was taken and adapted from the github repository https://github.com/KeremTurgutlu/dicom-contour
 
 
 import math
