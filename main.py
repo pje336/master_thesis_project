@@ -29,7 +29,7 @@ int_downsize = 2
 
 print("Shape of dataset:", data_shape)
 
-train = True
+train = False
 
 model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True)
 if torch.cuda.is_available():
@@ -60,7 +60,8 @@ if train:
 
     training_parameters_string = training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights,
                                                                patient_id, scan_id_training, scan_id_validation,
-                                                               validation_batches, nb_features, data_shape, int_downsize)
+                                                               validation_batches, nb_features, data_shape, int_downsize
+                                                               ,losses)
 
     write_string_to_file(file_path, "training_parameters.txt", training_parameters_string)
 

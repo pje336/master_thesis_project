@@ -2,7 +2,7 @@ import os
 
 
 def training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training,
-                                  scan_id_validation, validation_batches, nb_features, data_shape, int_downsize):
+                                  scan_id_validation, validation_batches, nb_features, data_shape, int_downsize, losses):
     """
     Function to generate a string with the important training parameters of the network.
     Returns: A string with the information.
@@ -20,7 +20,8 @@ scan_id_validation = {scan_id_validation}
 validation_batches = {validation_batches}
 nb_features = {nb_features}
 data_shape = {data_shape}
-int_downsize = {int_downsize}"""
+int_downsize = {int_downsize}
+losses = {losses}"""
     return text
 
 
