@@ -1,8 +1,11 @@
 import os
 
 
-def training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights, patient_id, scan_id_training,
-                                  scan_id_validation, validation_batches, nb_features, data_shape, int_downsize, losses):
+def training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights,
+                                  validation_batches, nb_features, data_shape, int_downsize, losses,
+                                  dropout_rate, patient_id_training=None, scan_id_training=None,
+                                  patient_id_validation=None,
+                                  scan_id_validation=None):
     """
     Function to generate a string with the important training parameters of the network.
     Returns: A string with the information.
@@ -14,14 +17,16 @@ learning_rate = {learning_rate}
 epochs = {epochs}
 batch_size = {batch_size}
 loss_weights = {loss_weights}
-patient_id = {patient_id}
+patient_id_training = {patient_id_training}
 scan_id_training = {scan_id_training}
+patient_id_validation = {patient_id_validation}
 scan_id_validation = {scan_id_validation}
 validation_batches = {validation_batches}
 nb_features = {nb_features}
 data_shape = {data_shape}
 int_downsize = {int_downsize}
-losses = {losses}"""
+losses = {losses}
+dropout_rate = {dropout_rate}"""
     return text
 
 

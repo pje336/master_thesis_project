@@ -27,7 +27,8 @@ class Unet(nn.Module):
                  max_pool=2,
                  feat_mult=1,
                  nb_conv_per_level=1,
-                 half_res=False):
+                 half_res=False,
+                 dropout=0.25):
         """
         Parameters:
             inshape: Input shape. e.g. (192, 192, 192)
@@ -119,12 +120,17 @@ class Unet(nn.Module):
         # cache final number of features
         self.final_nf = prev_nf
 
+        # dropout
+        self.dropout = nn.Dropout(dropout)
+
+
     def forward(self, x):
 
         # encoder forward pass
         x_history = [x]
         for level, convs in enumerate(self.encoder):
             for conv in convs:
+                x = self.dropout(x)
                 x = conv(x)
             x_history.append(x)
             x = self.pooling[level](x)
@@ -132,6 +138,7 @@ class Unet(nn.Module):
         # decoder forward pass with upsampling and concatenation
         for level, convs in enumerate(self.decoder):
             for conv in convs:
+                x = self.dropout(x)
                 x = conv(x)
             if not self.half_res or level < (self.nb_levels - 2):
                 x = self.upsampling[level](x)
@@ -139,6 +146,7 @@ class Unet(nn.Module):
 
         # remaining convs at full resolution
         for conv in self.remaining:
+            x = self.dropout(x)
             x = conv(x)
 
         return x
@@ -162,7 +170,8 @@ class VxmDense(LoadableModel):
                  use_probs=False,
                  src_feats=1,
                  trg_feats=1,
-                 unet_half_res=False):
+                 unet_half_res=False,
+                 dropout = 0.25):
         """ 
         Parameters:
             inshape: Input shape. e.g. (192, 192, 192)
@@ -204,6 +213,7 @@ class VxmDense(LoadableModel):
             feat_mult=unet_feat_mult,
             nb_conv_per_level=nb_unet_conv_per_level,
             half_res=unet_half_res,
+            dropout=0.25
         )
 
         # configure unet to flow field layer
