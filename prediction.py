@@ -3,9 +3,9 @@ import torch
 import voxelmorph
 from CT_path_dict.ct_path_dict import ct_path_dict, contour_dict
 from contours.contour import *
-from dataset_generator import scan_key_generator, generate_dataset
+from dataset_generator import generate_dataset
 from voxelmorph.torch.layers import SpatialTransformer
-
+from slice_viewer import slice_viewer
 
 
 def read_model_parameters_from_file(model_path: str, filename: str = "training_parameters.txt"):
@@ -40,43 +40,55 @@ def deform_contour(flow_field, scan_key, root_path, ct_path_dict, contour_dict, 
 
     """
     # Obtain scan information and the corresponding file paths.
-    [[(patient_id), (scan_id), (f_phase, m_phase)]] = scan_key
+    [[(patient_id), (scan_id), (f_phase, m_phase)]] = scan_key # This ugly I know :/
     path_images_moving = root_path + ct_path_dict[patient_id[0]][scan_id[0]][m_phase[0]]
     path_contour_moving = root_path + contour_dict[patient_id[0]][scan_id[0]][m_phase[0]]
     path_images_fixed = root_path + ct_path_dict[patient_id[0]][scan_id[0]][f_phase[0]]
     path_contour_fixed = root_path + contour_dict[patient_id[0]][scan_id[0]][f_phase[0]]
 
+    # obtain contour data.
     contour_data_moving = dicom.read_file(path_contour_moving + '/1-1.dcm')
+    contour_data_fixed = dicom.read_file(path_contour_fixed + '/1-1.dcm')
 
-    # iterate over all the contours/
-    warped_contour = torch.zeros((len(get_roi_names(contour_data_moving)),80,512,512))
-    dice_score = np.zeros(len(get_roi_names(contour_data_moving)))
-    for index in range(len(get_roi_names(contour_data_moving))):
+    roi_names = ['Esophagus', 'RLung', 'LLung', 'Tumor', 'LN', 'Vertebra', 'Carina']
+
+    # iterate over all the contours
+    warped_mask = torch.zeros((len(roi_names), z_shape[-1]-z_shape[0], 512, 512))
+    dice_score = np.zeros(len(roi_names))
+    for roi_index in range(len(roi_names)):
+        # Find the correct index for the specific roi.
+        index_f_phase = get_roi_names(contour_data_fixed).index(roi_names[roi_index] + "_c" + f_phase[0][0] + '0')
+        index_m_phase = get_roi_names(contour_data_moving).index(roi_names[roi_index] + "_c" + m_phase[0][0] + '0')
+
         # Get the contour volume and convert to float tensor..
-        mask_moving = get_mask(path_images_moving, path_contour_moving, index)[z_shape[0]:z_shape[1]]
+        mask_moving = (get_mask(path_images_moving, path_contour_moving, index_m_phase)[z_shape[0]:z_shape[1]] > 0) * 1
         mask_moving_tensor = torch.tensor(np.float64(mask_moving[None, None, ...]), dtype=torch.float)
-        mask_fixed = get_mask(path_images_fixed, path_contour_fixed, index)[z_shape[0]:z_shape[1]]
-        mask_fixed_tensor = torch.tensor(np.float64(mask_fixed[None, None, ...]), dtype=torch.float)
 
+        mask_fixed = ((get_mask(path_images_fixed, path_contour_fixed, index_f_phase)[z_shape[0]:z_shape[1]] > 0) * 1)
         # upsample the flowfield to the correct size.
         scale_factor = tuple(np.array(mask_moving_tensor.shape)[-3:] / np.array(flow_field.shape)[-3:])
-        flow_field_upsampled = torch.nn.functional.interpolate(flow_field, scale_factor= scale_factor,
+        flow_field_upsampled = torch.nn.functional.interpolate(flow_field, scale_factor=scale_factor,
                                                                mode='trilinear', align_corners=True)
 
-        # apply transformation to get warped_contour
-        transformer = SpatialTransformer(np.shape(mask_moving), mode = 'nearest')
-        warped_contour[index] = transformer(mask_moving_tensor, flow_field_upsampled)
+        # Apply transformation to get warped_contour
+        transformer = SpatialTransformer(np.shape(mask_moving), mode='nearest')
+        warped_mask[roi_index] = transformer(mask_moving_tensor, flow_field_upsampled)
 
-        dice_score[index] = voxelmorph.py.utils.dice(warped_contour[index].detach().numpy() , mask_fixed_tensor.detach().numpy())[0]
-
-    return warped_contour, dice_score
+        # Calculate the dice score between the warped mask  and the fixed mask.
+        dice_score[roi_index] = \
+        voxelmorph.py.utils.dice(warped_mask[roi_index].detach().numpy(), mask_fixed, 1)[0]
+        if dice_score[roi_index] == 0:
+            print(roi_index)
+            print(np.shape(warped_mask[roi_index].detach().numpy()),np.shape(mask_fixed))
+            slice_viewer([warped_mask[roi_index].detach().numpy(),mask_fixed])
+    return warped_mask, dice_score
 
 
 # Filepaths for the CT data and the trained model.
 root_path_data = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
 root_path_contour = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-512/"
-trained_model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_2022_04_25_12_33_59/"
-trained_model_dict_name = "voxelmorph_model_epoch_9.pth"
+trained_model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_2022_05_03_12_21_43/"
+trained_model_dict_name = "voxelmorph_model_epoch_16.pth"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Obtain training parameters.
@@ -97,10 +109,11 @@ batch_size = 1
 dimensions = [0, 80, 0, 256, 0, 256]
 shift = [0, 0, 0, 0]
 
-
 # Make an evaluation dataset.
-evaluation_scan_keys = scan_key_generator(ct_path_dict, patient_id_evaluation, scan_id_evaluation)
+# evaluation_scan_keys = scan_key_generator(ct_path_dict, patient_id_evaluation, scan_id_evaluation)
+evaluation_scan_keys = [[('107'), ('06-02-1999-p4-89680'), [('0'), ('30')]]]
 evaluation_set = generate_dataset(evaluation_scan_keys, root_path_data, ct_path_dict, dimensions, shift, batch_size)
+
 # Run through all the samples in the evaluation_set.
 for moving_tensor, fixed_tensor, scan_key in evaluation_set:
     print(scan_key)
@@ -110,7 +123,8 @@ for moving_tensor, fixed_tensor, scan_key in evaluation_set:
     prediction = model(moving_tensor, fixed_tensor)
 
     # compute the deformation of the contours.
-    warped_contour, dice_score = deform_contour(prediction[-1], scan_key, root_path_contour, ct_path_dict, contour_dict, dimensions[:2])
+    warped_contour, dice_score = deform_contour(prediction[-1], scan_key, root_path_contour, ct_path_dict, contour_dict,
+                                                dimensions[:2])
     print("dice scores for all contours:", dice_score)
     # Calculate jacobian for every voxel in deformation map.
     jac = voxelmorph.py.utils.jacobian_determinant(prediction[-1][0].permute(1, 2, 3, 0).cpu().detach().numpy())
