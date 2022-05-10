@@ -27,10 +27,11 @@ epochs = 50
 batch_size = 2
 int_downsize = 2
 dropout_rate = 0.3
+steps_per_epoch = 400
 
 print("Shape of dataset:", data_shape)
 
-train = False
+train = True
 
 model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True,
                                      dropout=dropout_rate)
@@ -42,7 +43,9 @@ if train:
     file_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/training_{}/".format(
         datetime.now(timezone.utc).strftime("%Y_%m_%d_%H_%M_%S"))
 
-    patient_id_training = ["107"]
+    patient_id_training = ["107", "109", "110", "111", "112", "113", "114", "115", "116", "117", "118", "119"]
+    # patient_id_training = ["107"]
+
     # scan_id_training = ["06-02-1999-p4-89680"]
     scan_id_training = None
 
@@ -71,4 +74,5 @@ if train:
     write_string_to_file(file_path, "training_parameters.txt", training_parameters_string)
 
     trained_model, training_loss, validation_loss = train_model(model, training_set, validation_set,
-                                                                epochs, learning_rate, losses, loss_weights, file_path)
+                                                                epochs, learning_rate, losses, loss_weights, file_path,
+                                                                steps_per_epoch)
