@@ -40,6 +40,7 @@ class SampleDataset(Dataset):
         _fixed = read_ct_data_file(self.root_path, self.ct_path_dict[patient_id][scan_id][phases[0]], self.dimensions)
         _moving = read_ct_data_file(self.root_path, self.ct_path_dict[patient_id][scan_id][phases[1]], self.dimensions)
 
+
         # Apply shift for data augmentation
         # determine the random shift in x and y directions.
         x_shift = randint(-self.shift[0], self.shift[1])
@@ -107,7 +108,7 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
         raise ValueError("Scan_keys has no objects.")
 
     # Checking if the files for scan_keys excist. Else, raise an ValueError
-    keys_not_found = scan_key_checker(scan_keys, root_path, ct_path_dict)
+    keys_not_found, keys_to_short = scan_key_checker(scan_keys, root_path, ct_path_dict, dimensions[1])
 
     if len(keys_not_found) == len(scan_keys):
         raise ValueError("None of the dicom"
@@ -115,6 +116,12 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
     elif len(keys_not_found) != 0:
         raise ValueError("The dicom files for the following keys where not found:", keys_not_found)
 
+    # remove keys which do not have enough slices in z direction.
+    for key in keys_to_short:
+        index = scan_keys.index(key)
+        scan_keys.pop(index)
+
+    print(len(scan_keys))
     data = SampleDataset(root_path, ct_path_dict, scan_keys, dimensions, shift)
     return DataLoader(data, batch_size, shuffle)
 
@@ -183,7 +190,7 @@ def scan_key_generator(dictionary, patient_ids=None, scan_list=None):
     return scan_keys
 
 
-def scan_key_checker(scan_keys, root_path, dictionary):
+def scan_key_checker(scan_keys, root_path, dictionary, min_z_length):
     """Checks if the dicom files for each scan key exists.
     If it does not it will be added to keys_not_found not found array.
 
@@ -198,6 +205,7 @@ def scan_key_checker(scan_keys, root_path, dictionary):
 
     """
     keys_not_found = []
+    keys_to_short = []
 
     for i, [patient, scan, phases] in enumerate(scan_keys):
 
@@ -205,9 +213,15 @@ def scan_key_checker(scan_keys, root_path, dictionary):
             filepath = dictionary[patient][scan][phase]
 
             try:
-                next(os.walk(root_path + filepath + "/"))
+                full_path, dirs, files = next(os.walk(root_path + filepath + "/"))
+
+                # check if there are enough slices in the z-direction.
+                if len(files) < min_z_length:
+                    keys_to_short.append(scan_keys[i])
+                    break # we do not need to check the other phase anymore
+
             except:
                 keys_not_found.append(scan_keys[i])
                 break  # we do not need to check the other phase anymore
 
-    return keys_not_found
+    return keys_not_found, keys_to_short
