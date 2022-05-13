@@ -88,7 +88,7 @@ class MSE:
         weighted mean square error loss function.
         Voxel where the true value is larger than one are increased with a weight.
         """
-        weight = ((y_true > 0.02cd g) * self.weight) + 1
+        weight = ((y_true > 0.02) * self.weight) + 1
         return torch.mean(weight * (y_true - y_pred) ** 2)
 
 
