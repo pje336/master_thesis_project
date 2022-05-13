@@ -1,7 +1,8 @@
+import math
+
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
-import math
 
 
 class NCC:
@@ -70,10 +71,26 @@ class NCC:
 class MSE:
     """
     Mean squared error loss.
+
     """
 
+    def __init__(self, weight=1):
+        self.weight = weight
+
     def loss(self, y_true, y_pred):
+        """
+        standard mean square error loss function
+        """
         return torch.mean((y_true - y_pred) ** 2)
+
+    def weighted_loss(self, y_true, y_pred):
+        """
+        weighted mean square error loss function.
+        Voxel where the true value is larger than one are increased with a weight.
+        """
+        weight = ((y_true > 0.02cd g) * self.weight) + 1
+        return torch.mean(weight * (y_true - y_pred) ** 2)
+
 
 
 class Dice:
