@@ -1,7 +1,7 @@
 import os
 
 
-def training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights,
+def training_parameters_to_string(learning_rate, epochs, batch_size, batches_per_step, loss_weights,
                                   validation_batches, nb_features, data_shape, int_downsize, losses,
                                   dropout_rate, patient_id_training=None, scan_id_training=None,
                                   patient_id_validation=None,
@@ -16,6 +16,7 @@ def training_parameters_to_string(learning_rate, epochs, batch_size, loss_weight
 learning_rate = {learning_rate}
 epochs = {epochs}
 batch_size = {batch_size}
+batches_per_step = {batches_per_step}
 loss_weights = {loss_weights}
 patient_id_training = {patient_id_training}
 scan_id_training = {scan_id_training}

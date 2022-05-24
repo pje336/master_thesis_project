@@ -10,7 +10,10 @@ from write_parameters_to_file import *
 # .\venv\Scripts\activate
 # dataset parameters
 root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
-dimensions = [0, 80, 0, 256, 0, 256]
+# dimensions = [0, 80, 96, 160, 96, 160]
+# dimensions = [0, 80, 80, 176, 80, 176]
+dimensions = [0, 80, 59, 187, 59, 187]
+
 data_shape = [dimensions[1] - dimensions[0], dimensions[3] - dimensions[2], dimensions[5] - dimensions[2]]
 shift = [0, 0, 0, 0]
 
@@ -18,7 +21,7 @@ shift = [0, 0, 0, 0]
 nb_features = [
     [16, 32, 32, 32],
     [32, 32, 32, 32, 32, 16, 16]]  # number of features of encoder and decoder
-losses = [voxelmorph.losses.MSE().loss, voxelmorph.losses.MSE().loss, voxelmorph.losses.Grad('l2').loss]
+losses = [voxelmorph.losses.MSE().loss, voxelmorph.losses.NCC.loss, voxelmorph.losses.Grad('l2').loss]
 loss_weights = [0.5, 0.5, 0.01]
 
 # Training parameters
@@ -28,6 +31,7 @@ batch_size = 2
 int_downsize = 2
 dropout_rate = 0.3
 steps_per_epoch = 400
+batches_per_step = 5
 
 print("Shape of dataset:", data_shape)
 
@@ -65,14 +69,17 @@ if train:
     training_set = generate_dataset(training_scan_keys, root_path, ct_path_dict, dimensions, shift, batch_size)
     validation_set = generate_dataset(random_validation_keys, root_path, ct_path_dict, dimensions, shift, batch_size)
 
-    training_parameters_string = training_parameters_to_string(learning_rate, epochs, batch_size, loss_weights,
+    training_parameters_string = training_parameters_to_string(learning_rate, epochs, batch_size, batches_per_step,
+                                                               loss_weights,
                                                                validation_batches, nb_features, data_shape,
                                                                int_downsize, losses,
-                                                               dropout_rate, patient_id_training, scan_id_training,
-                                                               patient_id_validation, scan_id_validation)
+                                                               dropout_rate, patient_id_training=None,
+                                                               scan_id_training=None,
+                                                               patient_id_validation=None,
+                                                               scan_id_validation=None)
 
     write_string_to_file(file_path, "training_parameters.txt", training_parameters_string)
 
-    trained_model, training_loss, validation_loss = train_model(model, training_set, validation_set,
-                                                                epochs, learning_rate, losses, loss_weights, file_path,
-                                                                steps_per_epoch)
+    trained_model, training_loss, validation_loss = train_model(model, training_set, validation_set, epochs,
+                                                                learning_rate, losses, loss_weights,
+                                                                file_path, steps_per_epoch, batches_per_step)
