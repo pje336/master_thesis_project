@@ -46,19 +46,31 @@ class SampleDataset(Dataset):
         x_shift = randint(-self.shift[0], self.shift[1])
         y_shift = randint(-self.shift[2], self.shift[3])
 
+        if x_shift == 0 and y_shift == 0:  # if it doesn't move return tensors immediately.
+            return _fixed, _moving, [self.scans_keys[index]]
+
         # This tuple is y,x because pad function is weird. See documentation of torch.nn.functional.pad
-        pad = (abs(y_shift), abs(y_shift), abs(x_shift), abs(x_shift))
+        pad = [abs(y_shift), abs(y_shift), abs(x_shift), abs(x_shift)]
 
         # Apply padding, rolling and then cropping to get the shifted image.
         # Note: The dims in roll are switched again, it is all super vague why this is.
-        _fixed = torch.nn.functional.pad(_fixed[0], pad).roll(shifts=(x_shift, y_shift), dims=(2, 1))[None, :,
-                 pad[2]:self.dimensions[3] + pad[2],
-                 pad[0]:self.dimensions[5] + pad[0]]
-        _moving = torch.nn.functional.pad(_moving[0], pad).roll(shifts=(x_shift, y_shift), dims=(2, 1))[None, :,
-                  pad[2]:self.dimensions[3] + pad[2],
-                  pad[0]:self.dimensions[5] + pad[0]]
 
-        return _fixed, _moving, [self.scans_keys[index]]
+        _fixed = torch.nn.functional.pad(_fixed[0], pad).roll(shifts=(x_shift, y_shift), dims=(2, 1))
+        _moving = torch.nn.functional.pad(_moving[0], pad).roll(shifts=(x_shift, y_shift), dims=(2, 1))
+
+        # if one of the padding is zero, then replace the value with None for correct slicing of array.
+        if pad[0] == 0:
+            return _fixed[None, :, pad[2]:-pad[2]], \
+                   _moving[None, :, pad[2]:-pad[2]], \
+                   [self.scans_keys[index]]
+        if pad[2] == 0:
+            return _fixed[None, :, :, pad[0]:-pad[0]], \
+                   _moving[None, :, :, pad[0]:-pad[0]], \
+                   [self.scans_keys[index]]
+
+        return _fixed[None, :, pad[2]:-pad[2], pad[0]:-pad[0]], \
+               _moving[None, :, pad[2]:-pad[2], pad[0]:-pad[0]], \
+               [self.scans_keys[index]]
 
     def shape(self):
         """ Return the shape of the fixed/moving tensor. """
@@ -121,7 +133,6 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
         index = scan_keys.index(key)
         scan_keys.pop(index)
 
-    print(len(scan_keys))
     data = SampleDataset(root_path, ct_path_dict, scan_keys, dimensions, shift)
     return DataLoader(data, batch_size, shuffle)
 
@@ -218,7 +229,7 @@ def scan_key_checker(scan_keys, root_path, dictionary, min_z_length):
                 # check if there are enough slices in the z-direction.
                 if len(files) < min_z_length:
                     keys_to_short.append(scan_keys[i])
-                    break # we do not need to check the other phase anymore
+                    break  # we do not need to check the other phase anymore
 
             except:
                 keys_not_found.append(scan_keys[i])
