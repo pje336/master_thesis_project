@@ -277,12 +277,11 @@ def get_mask(path_images, path_contour, index, filled=True):
 
     # get contour dict
     contour_dict = get_contour_dict(contour_file, path_images, index, uid_dict)
-
     for k, v in ordered_slices:
         # get data from contour dict
         if k in contour_dict:
             y = contour_dict[k][1]
-            y = scn.binary_fill_holes(y) if y.max() == 1 else y
+            y = scn.binary_fill_holes(y)
             contours.append(y)
         # get data from dicom.read_file
         else:
