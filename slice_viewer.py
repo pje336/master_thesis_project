@@ -1,73 +1,83 @@
+# Code taken from https://www.datacamp.com/tutorial/matplotlib-3d-volumetric-data
+# https://stackoverflow.com/questions/13784201/how-to-have-one-colorbar-for-all-subplots
+
+
 import matplotlib.pyplot as plt
 import numpy as np
+def remove_keymap_conflicts(new_keys_set):
+    for prop in plt.rcParams:
+        if prop.startswith('keymap.'):
+            keys = plt.rcParams[prop]
+            remove_list = set(keys) & new_keys_set
+            for key in remove_list:
+                keys.remove(key)
 
-class IndexTracker:
+
+def slice_viewer(volumes, title = None, shape = None ):
     """
-    class to update the plot for every slice.
-    based on: https://matplotlib.org/stable/gallery/event_handling/image_slices_viewer.html
+    Function to view slices of 3d volumes using matplotlib
+    use j and k to scroll through slices
+    Args:
+        volumes: array with volumes
+        title: Optional array with title for each plot
 
-    :param axes: array with plt.axes
-    :param Xs: array of data-arrays in shape [z,x,y]
+
     """
+    remove_keymap_conflicts({'j', 'k'})
+    if shape is not None:
+        fig, ax = plt.subplots(shape[0], shape[1])
+        ax = np.array(ax).flatten()
+        while len(ax) > len(volumes):
+            fig.delaxes(ax[-1])
+            ax = ax[:-1]
 
-    def __init__(self, axes, Xs, titles, fig):
-
-        self.slices, rows, cols = Xs[0].shape
-        self.ind = self.slices // 2
-        self.titles = titles
-        self.fig = fig
-
-        self.min = np.min([np.min(x) for x in Xs ])
-        self.max = np.max([np.max(x) for x in Xs])
-        print(self.min)
-
-        # check how many axes there are.
-        try:
-            self.length = len(axes)
-        except:
-            self.length = axes.numCols
-            axes = [axes]
-
-        # make a self item for each axes.
-        for i, ax in enumerate(axes):
-            exec("self.ax{} = ax".format(i))
-            exec("self.X{} = Xs[{}]".format(i, i))
-            exec("self.im{} = self.ax{}.imshow(self.X{}[self.ind,:, :], vmin = self.min, vmax = self.max, cmap='viridis')".format(i, i, i))
-            exec("fig.colorbar(self.im{},ax = ax)".format(i))
-            exec("self.im{} = self.ax{}.set_xlabel('x')".format(i, i))
-        self.update()
-
-    def on_scroll(self, event):
-        print("%s %s" % (event.button, event.step))
-        if event.button == 'up':
-            self.ind = (self.ind + 1) % self.slices
-        else:
-            self.ind = (self.ind - 1) % self.slices
-        self.update()
-
-    def update(self):
-        for i in range(self.length):
-            exec("self.im{} = self.ax{}.imshow(self.X{}[self.ind, :, :], vmin = self.min, vmax = self.max, cmap='viridis')".format(i, i, i))
-
-            exec("self.ax{}.set_ylabel('slice %s  y' % self.ind)".format(i))
-            exec("self.ax{}.set_title(self.titles[{}])".format(i,i))
-            exec("self.im{}.axes.figure.canvas.draw()".format(i))
-
-
-def slice_viewer(CT_data, titles, shape = None):
-    """
-    function to view slices of CT data using plt. You can scroll through the slices.
-    :param CT_data: array of data-arrays in shape [z,x,y]
-    """
-
-    if shape is None:
-
-        fig, axes = plt.subplots(1,len(CT_data))
-        tracker = IndexTracker(axes, CT_data, titles, fig)
     else:
-        fig, axes = plt.subplots(shape[0], shape[1])
-        tracker = IndexTracker(axes.flatten()[:len(CT_data)], CT_data, titles, fig)
+        fig, ax = plt.subplots(1, len(volumes))
 
-    fig.canvas.mpl_connect('scroll_event', tracker.on_scroll)
-    fig.tight_layout()
+
+    for i in range(len(volumes)):
+        ax[i].volume = volumes[i]
+        ax[i].index = volumes[i].shape[0] // 2
+        ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin = np.amin(volumes), vmax = np.amax(volumes))
+
+        if title is not None:
+            ax[i].set_title(title[i])
+
+    # add slice numbers
+    ax[0].set_ylabel('slice {}'.format(ax[0].index))
+
+    # add color bar
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.colorbar(ax[-1].im, cax=cbar_ax)
+
+    fig.canvas.mpl_connect('key_press_event', process_key)
     plt.show()
+
+
+def process_key(event):
+    fig = event.canvas.figure
+    axes = fig.axes[:-1]
+    if event.key == 'j':
+        previous_slice(axes)
+    elif event.key == 'k':
+        next_slice(axes)
+    fig.canvas.draw()
+
+
+def previous_slice(axes):
+    for ax in axes:
+        volume = ax.volume
+        ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
+        ax.images[0].set_array(volume[ax.index])
+    axes[0].set_ylabel('slice {}'.format(axes[0].index))
+
+
+def next_slice(axes):
+    for ax in axes:
+        volume = ax.volume
+        ax.index = (ax.index + 1) % volume.shape[0]
+        ax.images[0].set_array(volume[ax.index])
+    axes[0].set_ylabel('slice {}'.format(axes[0].index))
+
+
