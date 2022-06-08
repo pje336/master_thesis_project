@@ -34,12 +34,12 @@ class Unet(nn.Module):
             inshape: Input shape. e.g. (192, 192, 192)
             infeats: Number of input features.
             nb_features: Unet convolutional features. Can be specified via a list of lists with
-                the form [[encoder feats], [decoder feats]], or as a single integer. 
-                If None (default), the unet features are defined by the default config described in 
+                the form [[encoder feats], [decoder feats]], or as a single integer.
+                If None (default), the unet features are defined by the default config described in
                 the class documentation.
-            nb_levels: Number of levels in unet. Only used when nb_features is an integer. 
+            nb_levels: Number of levels in unet. Only used when nb_features is an integer.
                 Default is None.
-            feat_mult: Per-level feature multiplier. Only used when nb_features is an integer. 
+            feat_mult: Per-level feature multiplier. Only used when nb_features is an integer.
                 Default is 1.
             nb_conv_per_level: Number of convolutions per unet level. Default is 1.
             half_res: Skip the last decoder upsampling. Default is False.
@@ -171,28 +171,29 @@ class VxmDense(LoadableModel):
                  src_feats=1,
                  trg_feats=1,
                  unet_half_res=False,
+                 tanh = False,
                  dropout = 0.25):
-        """ 
+        """
         Parameters:
             inshape: Input shape. e.g. (192, 192, 192)
             nb_unet_features: Unet convolutional features. Can be specified via a list of lists with
-                the form [[encoder feats], [decoder feats]], or as a single integer. 
-                If None (default), the unet features are defined by the default config described in 
+                the form [[encoder feats], [decoder feats]], or as a single integer.
+                If None (default), the unet features are defined by the default config described in
                 the unet class documentation.
-            nb_unet_levels: Number of levels in unet. Only used when nb_features is an integer. 
+            nb_unet_levels: Number of levels in unet. Only used when nb_features is an integer.
                 Default is None.
-            unet_feat_mult: Per-level feature multiplier. Only used when nb_features is an integer. 
+            unet_feat_mult: Per-level feature multiplier. Only used when nb_features is an integer.
                 Default is 1.
             nb_unet_conv_per_level: Number of convolutions per unet level. Default is 1.
             int_steps: Number of flow integration steps. The warp is non-diffeomorphic when this 
                 value is 0.
-            int_downsize: Integer specifying the flow downsample factor for vector integration. 
+            int_downsize: Integer specifying the flow downsample factor for vector integration.
                 The flow field is not downsampled when this value is 1.
             bidir: Enable bidirectional cost function. Default is False.
             use_probs: Use probabilities in flow field. Default is False.
             src_feats: Number of source image features. Default is 1.
             trg_feats: Number of target image features. Default is 1.
-            unet_half_res: Skip the last unet decoder upsampling. Requires that int_downsize=2. 
+            unet_half_res: Skip the last unet decoder upsampling. Requires that int_downsize=2.
                 Default is False.
         """
         super().__init__()
@@ -213,7 +214,7 @@ class VxmDense(LoadableModel):
             feat_mult=unet_feat_mult,
             nb_conv_per_level=nb_unet_conv_per_level,
             half_res=unet_half_res,
-            dropout=0.25
+            dropout=dropout
         )
 
         # configure unet to flow field layer
@@ -251,6 +252,11 @@ class VxmDense(LoadableModel):
         # configure transformer
         self.transformer = layers.SpatialTransformer(inshape)
 
+        if tanh is not False:
+            self.tanh = torch.nn.Tanh()
+        else:
+            self.tanh = None
+
     def forward(self, source, target, registration=False):
         '''
         Parameters:
@@ -262,9 +268,10 @@ class VxmDense(LoadableModel):
         # concatenate inputs and propagate unet
         x = torch.cat([source, target], dim=1)
         x = self.unet_model(x)
-
         # transform into flow field
         flow_field = self.flow(x)
+        if self.tanh is not None:
+            flow_field = self.tanh(flow_field)
 
         # resize flow for integration
         pos_flow = flow_field
@@ -306,10 +313,13 @@ class ConvBlock(nn.Module):
         super().__init__()
 
         Conv = getattr(nn, 'Conv%dd' % ndims)
-        self.main = Conv(in_channels, out_channels, 3, stride, 1)
+        self.main = Conv(in_channels, out_channels, 3, stride, 1, bias=False)
+        self.norm = nn.GroupNorm(4, out_channels)
         self.activation = nn.LeakyReLU(0.2)
 
     def forward(self, x):
-        out = self.main(x)
-        out = self.activation(out)
-        return out
+        return self.activation(self.norm(self.main(x)))
+        # out = self.main(x)
+        # out = self.norm(out)
+        # out = self.activation(out)
+        # return out
