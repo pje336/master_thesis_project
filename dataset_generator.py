@@ -5,7 +5,7 @@ import numpy as np
 import pydicom
 import torch
 from torch.utils.data import Dataset, DataLoader
-
+import h5py
 
 class SampleDataset(Dataset):
     """Dataset class with fixed and moving tensor pairs each of shape [1,z,x,y]. Inherited from torch.utils.data.Dataset
@@ -36,9 +36,13 @@ class SampleDataset(Dataset):
         """Gets the fixed and moving tensor by reading the dicom files and applying data augmention"""
         patient_id, scan_id, phases = self.scans_keys[index]
 
-        # Get scan data.
-        _fixed = read_ct_data_file(self.root_path, self.ct_path_dict[patient_id][scan_id][phases[0]], self.dimensions)
-        _moving = read_ct_data_file(self.root_path, self.ct_path_dict[patient_id][scan_id][phases[1]], self.dimensions)
+        # Get scan data using dicom.
+        # _fixed = read_ct_data_file_dicom(self.root_path, self.ct_path_dict[patient_id][scan_id][phases[0]], self.dimensions)
+        # _moving = read_ct_data_file_dicom(self.root_path, self.ct_path_dict[patient_id][scan_id][phases[1]], self.dimensions)
+
+        _fixed = read_ct_data_file_h5(self.root_path, self.ct_path_dict[patient_id][scan_id], phases[0], self.dimensions)
+        _moving = read_ct_data_file_h5(self.root_path, self.ct_path_dict[patient_id][scan_id], phases[1], self.dimensions)
+
 
 
         # Apply shift for data augmentation
@@ -137,7 +141,7 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
     return DataLoader(data, batch_size, shuffle)
 
 
-def read_ct_data_file(root_path, filepath, dimensions):
+def read_ct_data_file_dicom(root_path, filepath, dimensions):
     """Imports  CT data by reading all dicom files in the given directory and normalises the data.
 
 
@@ -169,6 +173,32 @@ def read_ct_data_file(root_path, filepath, dimensions):
     return ct_data_tensor[None, ...]
 
 
+
+def read_ct_data_file_h5(root_path, filepath, phase, dimensions):
+    """Imports  CT data by reading all dicom files in the given directory and normalises the data.
+
+
+    Args:
+        root_path: [string] Root path to 4DCT folders.
+        filepath: [string] String with the specific folder whichdat  holds CT data.
+        phase: [string] string with the phase to read
+        dimensions: [1d array] array with dimensions to crop the image [z_min,z_max,x_min,x_max,y_min,y_max]
+
+
+    Returns:
+        ct_data_tensor: [4d tensor] 4d pytorch tensor of shape [1,z,x,y] with normalised CT data.
+
+    """
+    # Get all files and paths.
+    dataset = h5py.File(root_path + filepath + "/CT_dataset_all_phases.hdf5", "r")
+    ct_data_cropped = dataset[phase][dimensions[0]:dimensions[1], dimensions[2]:dimensions[3], dimensions[4]:dimensions[5]]
+
+    # normalise data
+    ct_data_tensor = torch.tensor(ct_data_cropped, dtype=torch.float)
+    ct_data_tensor /= 4000
+
+    return ct_data_tensor[None, ...]
+
 def scan_key_generator(dictionary, patient_ids=None, scan_list=None):
     """Generates an array with arrays containing keys for the dictionary.
     One could get the keys for all scans in the dictionary or for a specific patient or a specific scan of a patient.
@@ -182,6 +212,7 @@ def scan_key_generator(dictionary, patient_ids=None, scan_list=None):
             scan_keys: [array]: array with arrays of keys for each scan. e.g: [[patient_id,scan_id,[f_phase,m_phase]],...]
 
     """
+    phases = ["0","10","20","30","40","50","60","70","80","90"]
     scan_keys = []
     if patient_ids is None:
         patient_ids = dictionary.keys()
@@ -194,10 +225,10 @@ def scan_key_generator(dictionary, patient_ids=None, scan_list=None):
 
         for scan_id in scan_ids:
 
-            for m_phase in dictionary[patient_id][scan_id].keys():
+            for m_phase in phases:
 
-                for f_phase in dictionary[patient_id][scan_id].keys():
-                    scan_keys.append([patient_id, scan_id, [f_phase, m_phase]])
+                for f_phase in phases:
+                    scan_keys.append([patient_id, scan_id, [m_phase, f_phase]])
     return scan_keys
 
 
@@ -219,20 +250,20 @@ def scan_key_checker(scan_keys, root_path, dictionary, min_z_length):
     keys_to_short = []
 
     for i, [patient, scan, phases] in enumerate(scan_keys):
+        filepath = dictionary[patient][scan]
 
-        for phase in phases:
-            filepath = dictionary[patient][scan][phase]
+        try:
+            dataset = h5py.File(root_path + filepath + "/CT_dataset_all_phases.hdf5", "r")
+            dataset
 
-            try:
-                full_path, dirs, files = next(os.walk(root_path + filepath + "/"))
-
-                # check if there are enough slices in the z-direction.
-                if len(files) < min_z_length:
-                    keys_to_short.append(scan_keys[i])
-                    break  # we do not need to check the other phase anymore
-
-            except:
-                keys_not_found.append(scan_keys[i])
+            # check if there are enough slices in the z-direction.
+            if dataset["0"].shape[0] < min_z_length:
+                keys_to_short.append(scan_keys[i])
                 break  # we do not need to check the other phase anymore
+
+        except:
+            keys_not_found.append(scan_keys[i])
+            break  # we do not need to check the other phase anymore
+
 
     return keys_not_found, keys_to_short

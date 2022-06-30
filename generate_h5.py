@@ -38,7 +38,7 @@ for patient_id in ct_path_dict.keys():
             data = pydicom.dcmread(full_path + files[0])
 
             # Setup a empty array with correct shape (z,x,y)
-            ct_data = np.zeros((int(data.ImagesInAcquisition), int(data.Rows), int(data.Columns)), dtype=np.uint16)
+            ct_data = np.zeros((int(data.ImagesInAcquisition), int(data.Rows), int(data.Columns)), dtype=np.int16)
 
             # Iterate over files in folder.
             for z, file in enumerate(files):
