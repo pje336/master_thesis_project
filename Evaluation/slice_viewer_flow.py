@@ -25,11 +25,11 @@ def slice_viewer(volumes, title = None, shape = None, flow_field = None ):
     """
     remove_keymap_conflicts({'j', 'k', 'J', 'K'})
     if shape is not None:
-        fig, ax = plt.subplots(shape[0], shape[1])
+        fig, ax = plt.subplots(shape[0], shape[1], figsize = ( shape[1]*3.1, shape[0]*3.1))
         ax = np.array(ax).flatten()
-        while len(ax) > len(volumes):
-            fig.delaxes(ax[-1])
-            ax = ax[:-1]
+        while len(ax) > len(volumes)+1:
+            fig.delaxes(ax[shape[1]-1])
+            ax = np.delete(ax,shape[1]-1)
 
     else:
         if flow_field is not None:
@@ -41,37 +41,45 @@ def slice_viewer(volumes, title = None, shape = None, flow_field = None ):
     for i in range(len(volumes)):
         ax[i].volume = volumes[i]
         ax[i].index = volumes[i].shape[0] // 2
-        ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin = np.amin(volumes), vmax = np.amax(volumes))
+        if i < 3:
+            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin = np.amin(volumes[:3]), vmax = np.amax(volumes[:3]))
+        else:
+            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin=np.amin(volumes[3:]), vmax=np.amax(volumes[3:]))
 
         if title is not None:
             ax[i].set_title(title[i])
     if flow_field is not None:
-        grid_size = 4
+        grid_size = 8
         dimensions = np.shape(flow_field)
         ax[-1].index = dimensions[0]//2
 
         x = np.linspace(0, dimensions[1] - 1, dimensions[1])
         y = np.linspace(0, dimensions[2] - 1, dimensions[2])
         xv, yv = np.meshgrid(x, y)
+        ax[-1].clear()
         ax[-1].im = ax[-1].quiver(xv[::grid_size,::grid_size], yv[::grid_size,::grid_size],flow_field[ax[-1].index,::grid_size,::grid_size,1], flow_field[ax[-1].index,::grid_size,::grid_size,2])
         ax[-1].set_ylim(ax[-1].get_ylim()[::-1])
         ax[-1].volume = [flow_field, xv, yv, grid_size]
+        ax[-1].set_title("x-y DVF")
 
     # add slice numbers
     ax[0].set_ylabel('slice {}'.format(ax[0].index))
 
     # add color bar
     # fig.subplots_adjust(right=0.8)
-    # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    # fig.colorbar(ax[-1].im, cax=cbar_ax)
+    cbar_ax = fig.add_axes([0.75, 0.51, 0.05, 0.4])
+    fig.colorbar(ax[2].im, cax=cbar_ax)
+    # cbar_ax_2 = fig.add_axes([-1, 0.1, 0.05, 0.4])
+    # fig.colorbar(ax[3].im, cax=cbar_ax_2)
+
     fig.canvas.mpl_connect('key_press_event', process_key)
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.show()
 
 
 def process_key(event):
     fig = event.canvas.figure
-    axes = fig.axes
+    axes = fig.axes[:-1]
     if event.key == 'j' or event.key == 'J':
         previous_slice(axes)
     elif event.key == 'k' or event.key == 'K':
@@ -91,6 +99,7 @@ def previous_slice(axes):
     axes[-1].index = (axes[-1].index - 1) % np.shape(flow_field)[0] # wrap around using %
     axes[-1].im = axes[-1].quiver(xv[::grid_size,::grid_size], yv[::grid_size,::grid_size],flow_field[axes[-1].index,::grid_size,::grid_size,1], flow_field[axes[-1].index,::grid_size,::grid_size,2])
     axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
+    axes[-1].set_title("x-y DVF")
 
 
 def next_slice(axes):
@@ -107,5 +116,6 @@ def next_slice(axes):
     axes[-1].index =  (axes[-1].index + 1) % np.shape(flow_field)[0] # wrap around using %
     axes[-1].im = axes[-1].quiver(xv[::grid_size,::grid_size], yv[::grid_size,::grid_size],flow_field[axes[-1].index,::grid_size,::grid_size,1], flow_field[axes[-1].index,::grid_size,::grid_size,2])
     axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
+    axes[-1].set_title("x-y DVF")
 
 

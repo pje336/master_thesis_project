@@ -1,6 +1,6 @@
 """
-This script can be used to resize dicom files from the original size to a set size.
-This is only done in 2d.
+This script can be used to resize dicom files from the original size to a set size and store it as hdf5.
+This is only done in x and y.
 """
 
 import os

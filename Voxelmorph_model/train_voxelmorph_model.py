@@ -1,5 +1,5 @@
 import torch
-from write_parameters_to_file import write_string_to_file
+from Network_Functions.write_parameters_to_file import write_string_to_file
 
 
 def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_rate, losses, loss_weights,
@@ -54,7 +54,7 @@ def train_model(vxm_model, train_dataset, validation_dataset, epochs, learning_r
                 device = torch.device("cuda:0")
                 moving_tensor = moving_tensor.to(device)
                 fixed_tensor = fixed_tensor.to(device)
-
+            print(moving_tensor.shape)
             # Obtain next image pare from iterator.
             prediction = vxm_model(moving_tensor, fixed_tensor)
 

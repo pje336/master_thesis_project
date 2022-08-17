@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions.normal import Normal
 
 from .. import default_unet_features
@@ -253,7 +252,8 @@ class VxmDense(LoadableModel):
         self.transformer = layers.SpatialTransformer(inshape)
 
         if tanh is not False:
-            self.tanh = torch.nn.Tanh()
+            # self.tanh = torch.nn.Tanh()
+            self.tanh = torch.nn.Hardtanh(-10,10)
         else:
             self.tanh = None
 
@@ -282,6 +282,9 @@ class VxmDense(LoadableModel):
 
         # negate flow for bidirectional model
         neg_flow = -pos_flow if self.bidir else None
+        print("hello")
+        print(self.integrate)
+        print(self.fullsize)
 
         # integrate to produce diffeomorphic warp
         if self.integrate:

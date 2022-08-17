@@ -19,7 +19,7 @@ class NCC:
         Ji = y_pred
 
         # get dimension of volume
-        # assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
+        # assumes Ii, Ji are sized [batch_size, nb_feats,  *vol_shape]
         ndims = len(list(Ii.size())) - 2
         assert ndims in [1, 2, 3], "volumes should be 1 to 3 dimensions. found: %d" % ndims
 

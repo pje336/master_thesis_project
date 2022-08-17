@@ -1,14 +1,12 @@
 import torch
 
-import voxelmorph
-from CT_path_dict.ct_path_dict import ct_path_dict, contour_dict
+import json
+import Voxelmorph_model.voxelmorph as voxelmorph
 from contours.contour import *
-from dataset_generator import generate_dataset, scan_key_generator
+from Network_Functions.dataset_generator import generate_dataset, scan_key_generator
 from voxelmorph.torch.layers import SpatialTransformer
 from skimage.util import compare_images
-import matplotlib.pyplot as plt
-from slice_viewer import slice_viewer
-
+from Evaluation.slice_viewer_flow import slice_viewer
 
 
 def read_model_parameters_from_file(model_path: str, filename: str = "training_parameters.txt"):
@@ -88,36 +86,40 @@ def deform_contour(flow_field, scan_key, root_path, ct_path_dict, contour_dict, 
         dice_score_orignal[roi_index] = voxelmorph.py.utils.dice(mask_moving, mask_fixed, 1)[0]
     return warped_mask, dice_score_warped, dice_score_orignal
 
+
 # .\venv\Scripts\activate
-# C:\Users\pje33\GitHub\master_thesis_project\
+# cd C:\Users\pje33\GitHub\master_thesis_project\
 # Filepaths for the CT data and the trained model.
-root_path_data = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
+root_path_data = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256-h5/"
 root_path_contour = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-512/"
 trained_model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/"
 
-trained_model_folder=  ["training_2022_06_08_07_51_25"]
-# trained_model_folder =  ["training_2022_06_01_05_05_53","training_2022_06_02_07_40_32", "training_2022_06_02_20_31_53","training_2022_06_03_06_51_00"]
+with open(root_path_data + "scan_dictionary.json", 'r') as file:
+    ct_path_dict = json.load(file)
+with open(root_path_contour + "contour_dictionary.json", 'r') as file:
+    contour_dict = json.load(file)
 
-epoch = 22
+trained_model_folder = ["delftblue_MSE", "delftblue_NCC"]
+
+epoch = 19
 print("epoch used: ", epoch)
 
 model_array = []
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
 for model_folder in trained_model_folder:
     # Obtain training parameters.
     learning_rate, epochs, batch_size, loss_weights, patient_id_training, scan_id_training, patient_id_validation, scan_id_validation, \
-    validation_batches, nb_features, data_shape, int_downsize = read_model_parameters_from_file(trained_model_path + model_folder  + "/")
+    validation_batches, nb_features, data_shape, int_downsize = read_model_parameters_from_file(
+        trained_model_path + model_folder + "/")
 
     # Make the model and load the weights.
-    # if model_folder == "training_2022_05_28_16_32_07":
-    print("tahn")
-    model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True, tanh = True)
-    # else:
-    #     model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True)
 
-    model.load_state_dict(torch.load(trained_model_path + model_folder + "/voxelmorph_model_epoch_{}.pth".format(epoch), map_location=device))
+    model = voxelmorph.torch.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True,
+                                               tanh=True)
+
+    model.load_state_dict(torch.load(trained_model_path + model_folder + "/voxelmorph_model_epoch_{}.pth".format(epoch),
+                                     map_location=device))
     model.to(device)
     model.eval()
     model_array.append(model)
@@ -129,30 +131,30 @@ patient_id_evaluation = None
 scan_id_evaluation = None
 batch_size = 1
 dimensions = [0, 80, 0, 256, 0, 256]
-# dimensions = [0, 80, 59, 187, 59, 187]
-# dimensions = [0, 80, 59, 187, 59, 187]
-# dimensions = [0, 80, 80, 176, 80, 176]
-shift = [0,0, 0, 0]
+shift = [0, 0, 0, 0]
 
 # Make an evaluation dataset.
 evaluation_scan_keys = scan_key_generator(ct_path_dict, patient_id_evaluation, scan_id_evaluation)
-# evaluation_scan_keys = [[('108'), ('06-15-1999-p4-07025'), [('0'), ('90')]]]
-evaluation_set = generate_dataset(evaluation_scan_keys, root_path_data, ct_path_dict, dimensions, shift, batch_size)
+evaluation_set = generate_dataset(evaluation_scan_keys, root_path_data, ct_path_dict, dimensions, shift, batch_size,
+                                  shuffle=True)
 
 calculate_dice = False
 calculate_jac = False
 show_difference = True
 calculate_MSE = False
 
-total_losses = np.zeros(len(model_array))
+total_losses = np.zeros(len(model_array) + 1)
 
-counter = 0
+counter = 1
 
 z = 20
+
+if calculate_MSE:
+    MSE = voxelmorph.torch.losses.MSE().loss
+
 # Run through all the samples in the evaluation_set.
 for moving_tensor, fixed_tensor, scan_key in evaluation_set:
     print(scan_key)
-    print(total_losses)
 
     moving_tensor = moving_tensor.to(device)
     fixed_tensor = fixed_tensor.to(device)
@@ -161,39 +163,43 @@ for moving_tensor, fixed_tensor, scan_key in evaluation_set:
         prediction = model(moving_tensor, fixed_tensor)
 
         if calculate_MSE:
-            counter += 1
-            print("counter:", counter)
-            MSE = voxelmorph.losses.MSE().loss
-            MSE_prediction = MSE(fixed_tensor, prediction[0])
-            MSE_intial = MSE(fixed_tensor, moving_tensor)
-            improvement = (MSE_prediction - MSE_intial) / (MSE_intial) * 100
-            # print("Inital MSE: {} \nPredicted MSE: {} \nImprovement {}%".format(MSE_intial,MSE_prediction,improvement))
-            total_losses[i] += MSE_prediction
+            if i == 0:
+                MSE_intial = float(MSE(fixed_tensor, moving_tensor))
+                print(MSE_intial)
+                total_losses[0] += MSE_intial
+                counter += 1
+                print("counter:", counter)
 
+            # improvement = (MSE_prediction - MSE_intial) / (MSE_intial) * 100
+            # # print("Inital MSE: {} \nPredicted MSE: {} \nImprovement {}%".format(MSE_intial,MSE_prediction,improvement))
+            total_losses[i + 1] += float(MSE(fixed_tensor, prediction[0]))
 
         if show_difference:
-            prediction_array = prediction[0][0,0].detach().numpy()
-            source_array= moving_tensor[0,0].detach().numpy()
-            target_array = fixed_tensor[0,0].detach().numpy()
+            prediction_array = prediction[0][0, 0].detach().numpy()
+            source_array = moving_tensor[0, 0].detach().numpy()
+            target_array = fixed_tensor[0, 0].detach().numpy()
             # slice_viewer([source_array],"source")
             # slice_viewer([source_array,target_array],["source","target"])
             diff_ps = compare_images(prediction_array, source_array, method='diff')
             diff_pt = compare_images(prediction_array, target_array, method='diff')
             diff_ts = compare_images(target_array, source_array, method='diff')
             # slice_viewer([source_array,diff_ts, target_array],["source","diff", "target"])
+            flow_field = prediction[-1][0].permute(1, 2, 3, 0).detach().numpy()
 
-            print(np.max(diff_ps),np.max(diff_pt),np.max(diff_ts))
+            print(np.max(diff_ps), np.max(diff_pt), np.max(diff_ts))
             # titles = ["Fixed","Prediction","Moving","diff predict - moving","diff prediction - fixed","diff fixed - moving"]
             # slice_viewer([target_array,prediction_array,source_array,diff_ps,diff_pt,diff_ts], titles, (2,3) )
-            titles = ["diff predict - moving","diff prediction - fixed","diff fixed - moving"]
-            slice_viewer([diff_ps,diff_pt, diff_ts],titles)
-
-
+            titles = ["diff predict - moving", "diff prediction - fixed", "diff fixed - moving", "moving", "prediction",
+                      "Fixed"]
+            slice_viewer([diff_ps, diff_pt, diff_ts, source_array, prediction_array, target_array], titles,
+                         shape=(2, 4), flow_field=flow_field)
 
         if calculate_dice:
             # compute the deformation of the contours.
-            warped_mask, dice_score_warped, dice_score_orignal = deform_contour(prediction[-1], scan_key, root_path_contour,
-                                                                                ct_path_dict, contour_dict, dimensions[:2])
+            warped_mask, dice_score_warped, dice_score_orignal = deform_contour(prediction[-1], scan_key,
+                                                                                root_path_contour,
+                                                                                ct_path_dict, contour_dict,
+                                                                                dimensions[:2])
             print("dice scores for all warped contours:", dice_score_warped)
             print("dice scores for all orignal contours:", dice_score_orignal)
 
@@ -202,6 +208,9 @@ for moving_tensor, fixed_tensor, scan_key in evaluation_set:
             jac = voxelmorph.py.utils.jacobian_determinant(prediction[-1][0].permute(1, 2, 3, 0).cpu().detach().numpy())
             print("percentage of voxel with negative jacobian:", np.size(jac[jac < 0]) / np.size(jac) * 100)
 
-        # del prediction
-        # del fixed_tensor
-        # del moving_tensor
+        del prediction
+
+    if calculate_MSE:
+        print(total_losses)
+    del fixed_tensor
+    del moving_tensor

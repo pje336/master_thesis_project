@@ -29,26 +29,27 @@ for path, subdirs, files in os.walk(root_path):
 
         # check if the a dict for the patient_number or scan_id already exists.
         # if not, make a dict.
+
         if patient_number not in patient_list:
             dictionary_CT_data[patient_number] = {}
-            dictionary_contours[patient_number] = {}
             patient_list.append(patient_number)
         if scan_id not in scan_list:
             dictionary_CT_data[patient_number][scan_id] = {}
-            dictionary_contours[patient_number][scan_id] = {}
             scan_list.append(scan_id)
+        else:
+            continue
 
         # Insert filepath into the dict.
         # If it has more than one file it are the CT slices
         if len(next(os.walk(path))[-1]) > 1:
-            dictionary_CT_data[patient_number][scan_id][phase] = path[len(root_path):].replace('\\', "/")
-        else:  # Else it are the contours.
-            dictionary_contours[patient_number][scan_id][phase] = path[len(root_path):].replace('\\', "/")
+            dictionary_CT_data[patient_number][scan_id] = len(next(os.walk(path))[-1])
 
-# print the dict in json format.
-scan_file = open(root_path + "scan_dictionary.json", "w")
+print(dictionary_CT_data)
+#
+# # print the dict in json format.
+scan_file = open(root_path + "scan_length.json", "w")
 scan_file = json.dump(dictionary_CT_data, scan_file, indent= 4)
-
-contour_file  = open(root_path + "contour_dictionary.json", "w")
-contour_file = json.dump(dictionary_contours, contour_file,  indent= 4)
+#
+# contour_file  = open(root_path + "contour_dictionary.json", "w")
+# contour_file = json.dump(dictionary_contours, contour_file,  indent= 4)
 

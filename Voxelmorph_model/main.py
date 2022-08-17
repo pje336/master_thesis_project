@@ -1,18 +1,16 @@
 from datetime import datetime, timezone
 from random import sample
 
-import voxelmorph
+import Voxelmorph_model.voxelmorph as voxelmorph
 from CT_path_dict.ct_path_dict import ct_path_dict
-from dataset_generator import *
-from train_model import train_model
-from write_parameters_to_file import *
+from Network_Functions.dataset_generator import *
+from Voxelmorph_model.train_voxelmorph_model import train_model
+from Network_Functions.write_parameters_to_file import *
 
 # .\venv\Scripts\activate
 # dataset parameters
-root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
-# dimensions = [0, 80, 96, 160, 96, 160]
-# dimensions = [0, 80, 80, 176, 80, 176]
-dimensions = [0, 80, 59, 187, 59, 187]
+root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256-h5/"
+dimensions = [0, 80, 0, 256, 0, 256]
 
 data_shape = [dimensions[1] - dimensions[0], dimensions[3] - dimensions[2], dimensions[5] - dimensions[2]]
 shift = [0, 0, 0, 0]
@@ -21,7 +19,7 @@ shift = [0, 0, 0, 0]
 nb_features = [
     [16, 32, 32, 32],
     [32, 32, 32, 32, 32, 16, 16]]  # number of features of encoder and decoder
-losses = [voxelmorph.losses.MSE().loss, voxelmorph.losses.NCC.loss, voxelmorph.losses.Grad('l2').loss]
+losses = [voxelmorph.torch.losses.MSE().loss, voxelmorph.torch.losses.NCC.loss, voxelmorph.torch.losses.Grad('l2').loss]
 loss_weights = [0.5, 0.5, 0.01]
 
 # Training parameters
@@ -38,7 +36,7 @@ print("Shape of dataset:", data_shape)
 train = True
 
 model = voxelmorph.networks.VxmDense(data_shape, nb_features, int_downsize=int_downsize, bidir=True,
-                                     dropout=dropout_rate)
+                                                      dropout=dropout_rate)
 if torch.cuda.is_available():
     model.cuda()  # If possible move model to GPU.
 
