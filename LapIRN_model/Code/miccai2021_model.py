@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from Functions import generate_grid_unit
+from LapIRN_model.Code.Functions import generate_grid_unit
 
 
 class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl1(nn.Module):

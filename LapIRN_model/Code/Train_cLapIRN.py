@@ -56,7 +56,7 @@ epochs_lvl1 = opt.epochs_lvl1
 epochs_lvl2 = opt.epochs_lvl2
 epochs_lvl3 = opt.epochs_lvl3
 
-model_name = "LDR_OASIS_NCC_unit_disp_add_fea7_reg01_10_testing_"
+model_name = "LDR_model"
 
 
 def dataset_generators(batch_size):

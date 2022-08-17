@@ -125,7 +125,6 @@ def generate_dataset(scan_keys, root_path, ct_path_dict, dimensions, shift, batc
 
     # Checking if the files for scan_keys excist. Else, raise an ValueError
     keys_not_found, keys_to_short = scan_key_checker(scan_keys, root_path, ct_path_dict, dimensions[1])
-    print(keys_not_found)
     if len(keys_not_found) == len(scan_keys):
         raise ValueError("None of the dicom"
                          " files found, is the root path correct?")
