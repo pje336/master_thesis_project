@@ -16,15 +16,14 @@ from LapIRN_model.Code.miccai2021_model import Miccai2021_LDR_conditional_laplac
 
 def LabIRN_predict(model, fixed_img, moving_img):
     reg_input = 0.4
-    print("Current reg_input: ", str(reg_input))
+    # print("Current reg_input: ", str(reg_input))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     transform = SpatialTransform_unit().cuda()
     transform_nearest = SpatialTransformNearest_unit()
 
     transform.eval()
-
-    grid = generate_grid_unit(imgshape)
+    grid = generate_grid_unit(fixed_img.shape[2:])
     grid = torch.from_numpy(np.reshape(grid, (1,) + grid.shape)).float()
 
     with torch.no_grad():
@@ -37,10 +36,7 @@ def LabIRN_predict(model, fixed_img, moving_img):
         F_X_Y_cpu = F_X_Y.data.cpu().numpy()[0, :, :, :, :].transpose(1, 2, 3, 0)
         flow = transform_unit_flow_to_flow(F_X_Y_cpu)
 
-        source_array = moving_img[0, 0].detach().numpy()
-        target = fixed_img[0, 0].detach().numpy()
-        slice_viewer([source_array,image, target],["source_array","prediction", "target"] , flow_field=flow)
-        print(np.shape(image))
+    return image, flow
 
 
 def load_LapIRN_model(trained_model_folder, model_name, epoch=None, imgshape = (80, 256, 256)):
@@ -64,9 +60,7 @@ def load_LapIRN_model(trained_model_folder, model_name, epoch=None, imgshape = (
 
     if epoch is None:
         # Find the model_dict from the latest epoch.
-        epoch = len(glob.glob(trained_model_folder + model_name +  "/LDR_model_stagelvl3_*.pth")) - 1
-
-    model_dict_filename = trained_model_folder + model_name +  "/LDR_model_stagelvl3_{}.pth".format(epoch)
+        model_dict_filename = sorted(glob.glob(trained_model_folder + model_name +  "/LDR_*_stagelvl3_*.pth"))[-1]
     print(model_dict_filename)
     model.load_state_dict(torch.load(model_dict_filename,map_location=torch.device(device)))
     model.eval()

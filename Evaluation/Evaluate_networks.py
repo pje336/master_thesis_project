@@ -10,6 +10,7 @@ from Evaluation.slice_viewer_flow import slice_viewer
 from Voxelmorph_model.load_voxelmorph_model import load_voxelmorph_model
 from LapIRN_model.Code.Test_cLapIRN import *
 
+
 def deform_contour(flow_field, scan_key, root_path, ct_path_dict, contour_dict, z_shape):
     """
     Function to perform deformation of contours for a specific scan using the flow field of that scan.
@@ -26,10 +27,12 @@ def deform_contour(flow_field, scan_key, root_path, ct_path_dict, contour_dict, 
     """
     # Obtain scan information and the corresponding file paths.
     [[(patient_id), (scan_id), (f_phase, m_phase)]] = scan_key  # This ugly I know :/
-    path_images_moving = root_path + ct_path_dict[patient_id[0]][scan_id[0]][m_phase[0]]
-    path_contour_moving = root_path + contour_dict[patient_id[0]][scan_id[0]][m_phase[0]]
-    path_images_fixed = root_path + ct_path_dict[patient_id[0]][scan_id[0]][f_phase[0]]
-    path_contour_fixed = root_path + contour_dict[patient_id[0]][scan_id[0]][f_phase[0]]
+    print(type(patient_id),type(scan_id),type(f_phase),type(m_phase))
+    print(ct_path_dict)
+    path_images_moving = root_path + ct_path_dict[patient_id[0]][scan_id[0]][int(m_phase[0])]
+    path_contour_moving = root_path + contour_dict[patient_id[0]][scan_id[0]][int(m_phase[0])]
+    path_images_fixed = root_path + ct_path_dict[patient_id[0]][scan_id[0]][int(f_phase[0])]
+    path_contour_fixed = root_path + contour_dict[patient_id[0]][scan_id[0]][int(f_phase[0])]
 
     # obtain contour data.
     contour_data_moving = dicom.read_file(path_contour_moving + '/1-1.dcm')
@@ -92,6 +95,43 @@ def plot_prediction(moving_tensor, fixed_tensor, prediction):
                  shape=(2, 4), flow_field=flow_field)
 
 
+def evaulation_metrics(predicted_tensor, fixed_image, flowfield, calculate_MSE, calculate_dice, calculate_jac,
+                       show_difference):
+    metrics = []
+    items = []
+
+    if calculate_MSE:
+        MSE = voxelmorph.torch.losses.MSE().loss
+        metrics.append(float(MSE(fixed_image, predicted_tensor)))
+        items.append("MSE")
+
+    if calculate_dice:
+        # compute the deformation of the contours.
+        warped_mask, dice_score_warped, dice_score_orignal = deform_contour(flowfield, scan_key,
+                                                                            root_path_contour,
+                                                                            ct_path_dict, contour_dict,
+                                                                            dimensions[:2])
+        print("dice scores for all warped contours:", dice_score_warped)
+        print("dice scores for all orignal contours:", dice_score_orignal)
+        metrics.append(dice_score_warped)
+        metrics.append(dice_score_orignal)
+        items.append("dice_score_warped")
+        items.append("dice_score_orignal")
+
+    if calculate_jac:
+        # Calculate jacobian for every voxel in deformation map.
+        # print(flowfield.shape)
+        jac = voxelmorph.py.utils.jacobian_determinant(flowfield)
+        # print("percentage of voxel with negative jacobian:", np.size(jac[jac < 0]) / np.size(jac) * 100)
+        metrics.append(np.size(jac[jac < 0]) / np.size(jac))
+        items.append("jac")
+
+    if show_difference:
+        plot_prediction(moving_tensor, fixed_image, predicted_tensor)
+
+    return metrics, items
+
+
 # .\venv\Scripts\activate
 # cd C:\Users\pje33\GitHub\master_thesis_project\
 # Filepaths for the CT data and the trained model.
@@ -104,24 +144,19 @@ with open(root_path_data + "scan_dictionary.json", 'r') as file:
 with open(root_path_contour + "contour_dictionary.json", 'r') as file:
     contour_dict = json.load(file)
 
-
-
-
 model_array_VM = []
 
-#Import voxelmorph models
+# Import voxelmorph models
 voxelmorph_models = ["delftblue_MSE", "delftblue_NCC"]
 for model_name in voxelmorph_models:
     model_array_VM.append(load_voxelmorph_model(trained_model_path, model_name))
 
-
 model_array_lab = []
 
-#Import voxelmorph models
-lab_models = ["training_2022_08_16_11_04_43"]
+# Import voxelmorph models
+lab_models = ["training_2022_08_16_11_04_43", "training_2022_08_17_08_15_24"]
 for model_name in lab_models:
     model_array_lab.append(load_LapIRN_model(trained_model_path, model_name))
-
 
 print("Models imported")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -138,20 +173,18 @@ evaluation_scan_keys = scan_key_generator(ct_path_dict, patient_id_evaluation, s
 evaluation_set = generate_dataset(evaluation_scan_keys, root_path_data, ct_path_dict, dimensions, shift, batch_size,
                                   shuffle=True)
 
+calculate_MSE = True
 calculate_dice = False
-calculate_jac = False
-calculate_MSE = False
-show_difference = True
-
-
+calculate_jac = True
+show_difference = False
 
 counter = 1
 
 z = 20
+results = []
 
 if calculate_MSE:
     total_losses = np.zeros(len(model_array_lab + model_array_VM) + 1)
-    MSE = voxelmorph.torch.losses.MSE().loss
 
 # Run through all the samples in the evaluation_set.
 for moving_tensor, fixed_tensor, scan_key in evaluation_set:
@@ -160,41 +193,39 @@ for moving_tensor, fixed_tensor, scan_key in evaluation_set:
     moving_tensor = moving_tensor.to(device)
     fixed_tensor = fixed_tensor.to(device)
 
-    for i, model in enumerate(model_array):
-        prediction = model(moving_tensor, fixed_tensor)
+    # if calculate_MSE:
+    #     if i == 0:
+    #         MSE_intial = float(MSE(fixed_tensor, moving_tensor))
+    #         print(MSE_intial)
+    #         total_losses[0] += MSE_intial
+    #         counter += 1
+    #         print("counter:", counter)
 
-        if calculate_MSE:
-            if i == 0:
-                MSE_intial = float(MSE(fixed_tensor, moving_tensor))
-                print(MSE_intial)
-                total_losses[0] += MSE_intial
-                counter += 1
-                print("counter:", counter)
+    for i, model in enumerate(model_array_VM):
+        # VM model
+        (predicted_image, _, flowfield) = model(moving_tensor, fixed_tensor)
+        flowfield = flowfield[0].permute(1, 2, 3, 0).cpu().detach().numpy()
+        metrics, items = evaulation_metrics(predicted_image, fixed_tensor, flowfield, calculate_MSE, calculate_dice,
+                                            calculate_jac, show_difference)
 
-            # improvement = (MSE_prediction - MSE_intial) / (MSE_intial) * 100
-            # # print("Inital MSE: {} \nPredicted MSE: {} \nImprovement {}%".format(MSE_intial,MSE_prediction,improvement))
-            total_losses[i + 1] += float(MSE(fixed_tensor, prediction[0]))
+        if i == 0:
+            results.append(items)
+        results.append(metrics)
+        del predicted_image, _, flowfield
 
-        if show_difference:
-            plot_prediction(moving_tensor, fixed_tensor, prediction)
+    for i, model in enumerate(model_array_lab):
+        # lab model
+        predicted_image, flowfield = LabIRN_predict(model, fixed_tensor, moving_tensor)
 
-        if calculate_dice:
-            # compute the deformation of the contours.
-            warped_mask, dice_score_warped, dice_score_orignal = deform_contour(prediction[-1], scan_key,
-                                                                                root_path_contour,
-                                                                                ct_path_dict, contour_dict,
-                                                                                dimensions[:2])
-            print("dice scores for all warped contours:", dice_score_warped)
-            print("dice scores for all orignal contours:", dice_score_orignal)
+        metrics, items = evaulation_metrics(predicted_image, fixed_tensor, flowfield, calculate_MSE, calculate_dice,
+                                            calculate_jac, show_difference)
 
-        if calculate_jac:
-            # Calculate jacobian for every voxel in deformation map.
-            jac = voxelmorph.py.utils.jacobian_determinant(prediction[-1][0].permute(1, 2, 3, 0).cpu().detach().numpy())
-            print("percentage of voxel with negative jacobian:", np.size(jac[jac < 0]) / np.size(jac) * 100)
 
-        del prediction
+        results.append(metrics)
+        del predicted_image, flowfield
 
-    if calculate_MSE:
-        print(total_losses)
+    for row in results:
+        print(row)
+
     del fixed_tensor
     del moving_tensor

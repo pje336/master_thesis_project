@@ -282,9 +282,8 @@ class VxmDense(LoadableModel):
 
         # negate flow for bidirectional model
         neg_flow = -pos_flow if self.bidir else None
-        print("hello")
-        print(self.integrate)
-        print(self.fullsize)
+        # print(self.integrate)
+        # print(self.fullsize)
 
         # integrate to produce diffeomorphic warp
         if self.integrate:
