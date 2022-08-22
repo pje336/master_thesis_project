@@ -1,12 +1,7 @@
-import torch
-
-import json
 import Voxelmorph_model.voxelmorph as voxelmorph
 from contours.contour import *
-from Network_Functions.dataset_generator import generate_dataset, scan_key_generator
 from Voxelmorph_model.voxelmorph.torch.layers import SpatialTransformer
 from skimage.util import compare_images
-from Evaluation.slice_viewer_flow import slice_viewer
 from Voxelmorph_model.load_voxelmorph_model import load_voxelmorph_model
 from LapIRN_model.Code.Test_cLapIRN import *
 
@@ -27,12 +22,10 @@ def deform_contour(flow_field, scan_key, root_path, ct_path_dict, contour_dict, 
     """
     # Obtain scan information and the corresponding file paths.
     [[(patient_id), (scan_id), (f_phase, m_phase)]] = scan_key  # This ugly I know :/
-    print(type(patient_id),type(scan_id),type(f_phase),type(m_phase))
-    print(ct_path_dict)
-    path_images_moving = root_path + ct_path_dict[patient_id[0]][scan_id[0]][int(m_phase[0])]
-    path_contour_moving = root_path + contour_dict[patient_id[0]][scan_id[0]][int(m_phase[0])]
-    path_images_fixed = root_path + ct_path_dict[patient_id[0]][scan_id[0]][int(f_phase[0])]
-    path_contour_fixed = root_path + contour_dict[patient_id[0]][scan_id[0]][int(f_phase[0])]
+    path_images_moving = root_path + ct_path_dict[patient_id[0]][scan_id[0]][m_phase[0]]
+    path_contour_moving = root_path + contour_dict[patient_id[0]][scan_id[0]][m_phase[0]]
+    path_images_fixed = root_path + ct_path_dict[patient_id[0]][scan_id[0]][f_phase[0]]
+    path_contour_fixed = root_path + contour_dict[patient_id[0]][scan_id[0]][f_phase[0]]
 
     # obtain contour data.
     contour_data_moving = dicom.read_file(path_contour_moving + '/1-1.dcm')
@@ -45,25 +38,29 @@ def deform_contour(flow_field, scan_key, root_path, ct_path_dict, contour_dict, 
     dice_score_warped = np.zeros(len(roi_names))
     dice_score_orignal = np.zeros(len(roi_names))
     for roi_index in range(len(roi_names)):
-        # Find the correct index for the specific roi.
-        index_f_phase = get_roi_names(contour_data_fixed).index(roi_names[roi_index] + "_c" + f_phase[0][0] + '0')
-        index_m_phase = get_roi_names(contour_data_moving).index(roi_names[roi_index] + "_c" + m_phase[0][0] + '0')
 
+        # print("ROI:", roi_names[roi_index])
+
+        # Find the correct index for the specific roi.
+        try:
+            index_f_phase = get_roi_names(contour_data_fixed).index(roi_names[roi_index] + "_c" + f_phase[0][0] + '0')
+            index_m_phase = get_roi_names(contour_data_moving).index(roi_names[roi_index] + "_c" + m_phase[0][0] + '0')
+        except:
+            print("The following ROI was not found:", roi_names[roi_index])
+            continue
         # Get the contour volume and convert to float tensor..
         mask_moving = (get_mask(path_images_moving, path_contour_moving, index_m_phase)[z_shape[0]:z_shape[1]] > 0) * 1
         mask_moving_tensor = torch.tensor(np.float64(mask_moving[None, None, ...]), dtype=torch.float)
-        print(mask_moving_tensor.shape)
 
         mask_fixed = ((get_mask(path_images_fixed, path_contour_fixed, index_f_phase)[z_shape[0]:z_shape[1]] > 0) * 1)
-
         # upsample the flowfield to the correct size at first iteration.
         if roi_index == 0:
+            flow_field = torch.from_numpy(flow_field[None, ...]).permute(0, 4, 1, 2, 3)
             scale_factor = tuple(np.array(mask_moving_tensor.shape)[-3:] / np.array(flow_field.shape)[-3:])
             flow_field_upsampled = torch.nn.functional.interpolate(flow_field, scale_factor=scale_factor,
                                                                    mode='trilinear', align_corners=True)
             transformer = SpatialTransformer(np.shape(mask_moving), mode='nearest')
 
-        print(flow_field_upsampled.shape)
         # Apply transformation to get warped_contour
         warped_mask[roi_index] = transformer(mask_moving_tensor, flow_field_upsampled)
 
@@ -97,6 +94,8 @@ def plot_prediction(moving_tensor, fixed_tensor, prediction):
 
 def evaulation_metrics(predicted_tensor, fixed_image, flowfield, calculate_MSE, calculate_dice, calculate_jac,
                        show_difference):
+
+
     metrics = []
     items = []
 
@@ -106,13 +105,17 @@ def evaulation_metrics(predicted_tensor, fixed_image, flowfield, calculate_MSE, 
         items.append("MSE")
 
     if calculate_dice:
+        root_path_contour = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-512/"
+        with open(root_path_contour + "scan_dictionary.json", 'r') as file:
+            ct_path_dict_512 = json.load(file)
+        # print("hello")
         # compute the deformation of the contours.
         warped_mask, dice_score_warped, dice_score_orignal = deform_contour(flowfield, scan_key,
                                                                             root_path_contour,
-                                                                            ct_path_dict, contour_dict,
+                                                                            ct_path_dict_512, contour_dict,
                                                                             dimensions[:2])
-        print("dice scores for all warped contours:", dice_score_warped)
-        print("dice scores for all orignal contours:", dice_score_orignal)
+        # print("dice scores for all warped contours:", dice_score_warped)
+        # print("dice scores for all orignal contours:", dice_score_orignal)
         metrics.append(dice_score_warped)
         metrics.append(dice_score_orignal)
         items.append("dice_score_warped")
@@ -162,7 +165,7 @@ print("Models imported")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Parameters for evaluation dataset
-patient_id_evaluation = None
+patient_id_evaluation = ["107"]
 scan_id_evaluation = None
 batch_size = 1
 dimensions = [0, 80, 0, 256, 0, 256]
@@ -174,32 +177,27 @@ evaluation_set = generate_dataset(evaluation_scan_keys, root_path_data, ct_path_
                                   shuffle=True)
 
 calculate_MSE = True
-calculate_dice = False
+calculate_dice = True
 calculate_jac = True
 show_difference = False
 
 counter = 1
 
 z = 20
-results = []
 
-if calculate_MSE:
-    total_losses = np.zeros(len(model_array_lab + model_array_VM) + 1)
 
 # Run through all the samples in the evaluation_set.
 for moving_tensor, fixed_tensor, scan_key in evaluation_set:
+    results = []
     print(scan_key)
 
     moving_tensor = moving_tensor.to(device)
     fixed_tensor = fixed_tensor.to(device)
 
-    # if calculate_MSE:
-    #     if i == 0:
-    #         MSE_intial = float(MSE(fixed_tensor, moving_tensor))
-    #         print(MSE_intial)
-    #         total_losses[0] += MSE_intial
-    #         counter += 1
-    #         print("counter:", counter)
+    if calculate_MSE:
+        metrics, items = evaulation_metrics(moving_tensor, fixed_tensor, None, True, False,
+                                            False, False)
+        results.append(metrics)
 
     for i, model in enumerate(model_array_VM):
         # VM model
