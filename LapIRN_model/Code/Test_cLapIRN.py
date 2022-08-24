@@ -31,7 +31,7 @@ def LabIRN_predict(model, fixed_img, moving_img):
 
         F_X_Y = model(moving_img, fixed_img, reg_code)
 
-        image = transform(moving_img, F_X_Y.permute(0, 2, 3, 4, 1), grid).data.cpu().numpy()[0, 0, :, :, :]
+        image = transform(moving_img, F_X_Y.permute(0, 2, 3, 4, 1), grid)
 
         F_X_Y_cpu = F_X_Y.data.cpu().numpy()[0, :, :, :, :].transpose(1, 2, 3, 0)
         flow = transform_unit_flow_to_flow(F_X_Y_cpu)
