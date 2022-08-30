@@ -6,10 +6,11 @@ import functools
 # third party imports
 import numpy as np
 import scipy
-from skimage import measure
+# from skimage import measure
 
 # local/our imports
 import pystrum.pynd.ndutils as nd
+import torch
 
 
 def default_unet_features():
@@ -302,12 +303,13 @@ def extract_largest_vol(bw, connectivity=1):
     Extracts the binary (boolean) image with just the largest component.
     TODO: This might be less than efficiently implemented.
     """
-    lab = measure.label(bw.astype('int'), connectivity=connectivity)
-    regions = measure.regionprops(lab, cache=False)
-    areas = [f.area for f in regions]
-    ai = np.argsort(areas)[::-1]
-    bw = lab == ai[0] + 1
-    return bw
+    # lab = measure.label(bw.astype('int'), connectivity=connectivity)
+    # regions = measure.regionprops(lab, cache=False)
+    # areas = [f.area for f in regions]
+    # ai = np.argsort(areas)[::-1]
+    # bw = lab == ai[0] + 1
+    # return bw
+    return None
 
 
 def clean_seg(x, std=1):
@@ -482,10 +484,10 @@ def jacobian_determinant(disp):
 
     # compute grid
     grid_lst = nd.volsize2ndgrid(volshape)
-    grid = np.stack(grid_lst, len(volshape))
+    grid = torch.from_numpy(np.stack(grid_lst, len(volshape)))
 
     # compute gradients
-    J = np.gradient(disp + grid)
+    J = torch.gradient(disp + grid)
 
     # 3D glow
     if nb_dims == 3:
@@ -506,3 +508,10 @@ def jacobian_determinant(disp):
         dfdy = J[1]
 
         return dfdx[..., 0] * dfdy[..., 1] - dfdy[..., 0] * dfdx[..., 1]
+
+def neg_Jdet_loss(flow_field):
+    neg_Jdet = -1.0 * jacobian_determinant(flow_field)
+    selected_neg_Jdet = torch.nn.functional.relu(neg_Jdet)
+
+    # return selected_neg_Jdet
+    return torch.mean(selected_neg_Jdet)
