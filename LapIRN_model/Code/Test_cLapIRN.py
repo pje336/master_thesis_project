@@ -2,11 +2,9 @@ from argparse import ArgumentParser
 
 import glob
 from Network_Functions.dataset_generator import *
-import json
-from Evaluation.slice_viewer_flow import slice_viewer
 
 
-from LapIRN_model.Code.Functions import generate_grid_unit, transform_unit_flow_to_flow
+from LapIRN_model.Code.Functions import generate_grid_unit, transform_unit_flow_to_flow_cuda
 from LapIRN_model.Code.miccai2021_model import Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl1, \
     Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl2, Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl3, \
     SpatialTransform_unit, SpatialTransformNearest_unit
@@ -33,8 +31,7 @@ def LabIRN_predict(model, fixed_img, moving_img):
 
         image = transform(moving_img, F_X_Y.permute(0, 2, 3, 4, 1), grid)
 
-        F_X_Y_cpu = F_X_Y.data.cpu().numpy()[0, :, :, :, :].transpose(1, 2, 3, 0)
-        flow = transform_unit_flow_to_flow(F_X_Y_cpu)
+        flow = transform_unit_flow_to_flow_cuda(F_X_Y.permute(0, 2, 3, 4, 1))
 
     return image, flow
 
@@ -67,12 +64,3 @@ def load_LapIRN_model(trained_model_folder, model_name, epoch=None, imgshape = (
 
     return model
 
-
-# if __name__ == '__main__':
-#
-#     imgshape = (80, 256, 256)
-#     trained_model_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/saved_models/"
-#     model_name = "training_2022_08_16_11_04_43"
-#     model = load_LapIRN_model(trained_model_path,model_name)
-#     range_flow = 0.4
-#     LabIRN_predict(model, fixed_img, moving_img)
