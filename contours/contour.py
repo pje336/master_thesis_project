@@ -281,7 +281,7 @@ def get_mask(path_images, path_contour, index, filled=True):
         # get data from contour dict
         if k in contour_dict:
             y = contour_dict[k][1]
-            y = scn.binary_fill_holes(y)
+            # y = scn.binary_fill_holes(y) make mask from contour
             contours.append(y)
         # get data from dicom.read_file
         else:
