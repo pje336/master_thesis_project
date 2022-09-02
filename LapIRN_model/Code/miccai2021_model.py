@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from LapIRN_model.Code.Functions import generate_grid_unit
+from Functions import generate_grid_unit
+
 
 
 class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl1(nn.Module):
@@ -19,9 +20,9 @@ class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl1(nn.Module):
         self.imgshape = imgshape
 
         self.grid_1 = generate_grid_unit(self.imgshape)
-        self.grid_1 = torch.from_numpy(np.reshape(self.grid_1, (1,) + self.grid_1.shape)).float()
+        self.grid_1 = torch.from_numpy(np.reshape(self.grid_1, (1,) + self.grid_1.shape)).cuda().float()
 
-        self.transform = SpatialTransform_unit()
+        self.transform = SpatialTransform_unit().cuda()
 
         bias_opt = False
 
@@ -121,7 +122,7 @@ class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl1(nn.Module):
 
 
         if self.is_train is True:
-            return output_disp_e0_v, warpped_inputx_lvl1_out, down_y, output_disp_e0_v, e0
+            return (output_disp_e0_v, warpped_inputx_lvl1_out, down_y, output_disp_e0_v, e0)
         else:
             return output_disp_e0_v
 
@@ -141,9 +142,9 @@ class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl2(nn.Module):
         self.model_lvl1 = model_lvl1
 
         self.grid_1 = generate_grid_unit(self.imgshape)
-        self.grid_1 = torch.from_numpy(np.reshape(self.grid_1, (1,) + self.grid_1.shape)).float()
+        self.grid_1 = torch.from_numpy(np.reshape(self.grid_1, (1,) + self.grid_1.shape)).cuda().float()
 
-        self.transform = SpatialTransform_unit()
+        self.transform = SpatialTransform_unit().cuda()
 
         bias_opt = False
 
@@ -254,7 +255,7 @@ class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl2(nn.Module):
         warpped_inputx_lvl1_out = self.transform(x, compose_field_e0_lvl1.permute(0, 2, 3, 4, 1), self.grid_1)
 
         if self.is_train is True:
-            return compose_field_e0_lvl1, warpped_inputx_lvl1_out, y_down, output_disp_e0_v, lvl1_v, e0
+            return (compose_field_e0_lvl1, warpped_inputx_lvl1_out, y_down, output_disp_e0_v, lvl1_v, e0)
         else:
             return compose_field_e0_lvl1
 
@@ -274,8 +275,8 @@ class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl3(nn.Module):
 
         self.model_lvl2 = model_lvl2
 
-        self.grid_1 = generate_grid_unit(self.imgshape)
-        self.grid_1 = torch.from_numpy(np.reshape(self.grid_1, (1,) + self.grid_1.shape)).float()
+        self.grid_1 = generate_grid_unit(self.imgshape).cuda()
+        self.grid_1 = torch.from_numpy(np.reshape(self.grid_1, (1,) + self.grid_1.shape)).cuda().float()
 
         self.transform = SpatialTransform_unit()
 
@@ -384,10 +385,168 @@ class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl3(nn.Module):
         warpped_inputx_lvl1_out = self.transform(x, compose_field_e0_lvl1.permute(0, 2, 3, 4, 1), self.grid_1)
 
         if self.is_train is True:
-            return compose_field_e0_lvl1, warpped_inputx_lvl1_out, y, output_disp_e0_v, lvl1_v, lvl2_v, e0
+            return (compose_field_e0_lvl1, warpped_inputx_lvl1_out, y, output_disp_e0_v, lvl1_v, lvl2_v, e0)
         else:
             return compose_field_e0_lvl1
 
+class Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl_general(nn.Module):
+    def __init__(self, in_channel, n_classes, start_channel, is_train=True, imgshape=(80,256,256), range_flow=0.4, model_previous=None):
+        super(Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl_general, self).__init__()
+        self.in_channel = in_channel
+        self.n_classes = n_classes
+        self.start_channel = start_channel
+
+        self.range_flow = range_flow
+        self.is_train = is_train
+
+        self.imgshape = imgshape
+
+        self.model_previous = model_previous
+
+        self.grid_1 = generate_grid_unit(self.imgshape)
+        self.grid_1 = torch.from_numpy(np.reshape(self.grid_1, (1,) + self.grid_1.shape)).cuda().float()
+
+        self.transform = SpatialTransform_unit().cuda()
+
+        bias_opt = False
+
+        self.input_encoder_lvl1 = self.input_feature_extract(self.in_channel+3, self.start_channel * 4, bias=bias_opt)
+
+        self.down_conv = nn.Conv3d(self.start_channel * 4, self.start_channel * 4, 3, stride=2, padding=1, bias=bias_opt)
+
+        self.resblock_group_lvl1 = self.resblock_seq(self.start_channel * 4, bias_opt=bias_opt)
+
+        self.up_tri = torch.nn.Upsample(scale_factor=2, mode="trilinear")
+        # self.down_tri = torch.nn.functional.interpolate(scale_factor = 0.5, mode = "trilinear")
+        self.up = nn.ConvTranspose3d(self.start_channel * 4, self.start_channel * 4, 2, stride=2,
+                                     padding=0, output_padding=0, bias=bias_opt)
+
+        self.down_avg = nn.AvgPool3d(kernel_size=3, stride=2, padding=1, count_include_pad=False)
+
+        self.output_lvl1 = self.outputs(self.start_channel * 8, self.n_classes, kernel_size=3, stride=1, padding=1, bias=False)
+
+
+    def unfreeze_model_previous(self):
+        # unFreeze model_lvl1 weight
+        print("\nunfreeze model_previous parameter")
+        for param in self.model_previous.parameters():
+            param.requires_grad = True
+
+    def resblock_seq(self, in_channels, bias_opt=False):
+        layer = nn.ModuleList([
+            PreActBlock_Conditional(in_channels, in_channels, bias=bias_opt),
+            nn.LeakyReLU(0.2),
+            PreActBlock_Conditional(in_channels, in_channels, bias=bias_opt),
+            nn.LeakyReLU(0.2),
+            PreActBlock_Conditional(in_channels, in_channels, bias=bias_opt),
+            nn.LeakyReLU(0.2),
+            PreActBlock_Conditional(in_channels, in_channels, bias=bias_opt),
+            nn.LeakyReLU(0.2),
+            PreActBlock_Conditional(in_channels, in_channels, bias=bias_opt),
+            nn.LeakyReLU(0.2)
+            ]
+        )
+        return layer
+
+    def input_feature_extract(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1,
+                              bias=False, batchnorm=False):
+        if batchnorm:
+            layer = nn.Sequential(
+                nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
+                nn.BatchNorm3d(out_channels),
+                nn.ReLU())
+        else:
+            layer = nn.Sequential(
+                nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
+                nn.LeakyReLU(0.2),
+                nn.Conv3d(out_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias))
+        return layer
+
+    def decoder(self, in_channels, out_channels, kernel_size=2, stride=2, padding=0,
+                output_padding=0, bias=True):
+        layer = nn.Sequential(
+            nn.ConvTranspose3d(in_channels, out_channels, kernel_size, stride=stride,
+                               padding=padding, output_padding=output_padding, bias=bias),
+            nn.ReLU())
+        return layer
+
+    def outputs(self, in_channels, out_channels, kernel_size=3, stride=1, padding=0,
+                bias=False, batchnorm=False):
+        if batchnorm:
+            layer = nn.Sequential(
+                nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
+                nn.BatchNorm3d(out_channels),
+                nn.Tanh())
+        else:
+            # layer = nn.Sequential(
+            #     nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
+            #     nn.Tanh())
+            layer = nn.Sequential(
+                nn.Conv3d(in_channels, int(in_channels/2), kernel_size, stride=stride, padding=padding, bias=bias),
+                nn.LeakyReLU(0.2),
+                nn.Conv3d(int(in_channels/2), out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
+                nn.Softsign())
+        return layer
+
+    def forward(self, x, y, reg_code):
+        # output_disp_e0, warpped_inputx_lvl1_out, down_y, output_disp_e0_v, e0
+        previous_prediction = self.model_previous(x, y, reg_code)
+        previous_disp = previous_prediction[0]
+        previous_embedding = previous_prediction[-1]
+
+        ratio_disp = previous_disp.shape[-1] / self.imgshape[-1]
+        # this can also be down
+        if ratio_disp < 1.0:
+            previous_disp_up = self.up_tri(previous_disp)
+        else:
+            previous_disp_up = torch.nn.functional.interpolate(previous_disp, scale_factor  = [0.5,0.5,0.5], mode = "trilinear")
+
+        ratio = int(x.shape[-1] / self.imgshape[-1])
+        if ratio != 1:
+            for _ in range(ratio // 2):
+                # look into this
+                x = self.down_avg(x)
+                y = self.down_avg(y)
+
+        x_down = x
+        y_down = y
+        warpped_x = self.transform(x_down, previous_disp_up.permute(0, 2, 3, 4, 1), self.grid_1)
+
+
+        cat_input_lvl2 = torch.cat((warpped_x, y_down, previous_disp_up), 1)
+
+        fea_e0 = self.input_encoder_lvl1(cat_input_lvl2)
+
+        if ratio_disp < 1.0:
+            e0 = self.down_conv(fea_e0)
+        else:
+            e0 = self.up(fea_e0)
+
+
+        e0 = e0 + previous_embedding
+
+        # e0 = self.resblock_group_lvl1(e0)
+        for i in range(len(self.resblock_group_lvl1)):
+            if i % 2 == 0:
+                e0 = self.resblock_group_lvl1[i](e0, reg_code)
+            else:
+                e0 = self.resblock_group_lvl1[i](e0)
+
+
+        if ratio_disp > 1.0:
+            e0 = self.down_conv(e0)
+        else:
+            e0 = self.up(e0)
+
+        torch.cat([e0, fea_e0])
+        output_disp_e0_v = self.output_lvl1(torch.cat([e0, fea_e0], dim=1)) * self.range_flow
+        compose_field_e0_lvl1 = previous_disp_up + output_disp_e0_v
+        warpped_inputx_lvl1_out = self.transform(x, compose_field_e0_lvl1.permute(0, 2, 3, 4, 1), self.grid_1)
+
+        if self.is_train is True:
+            return (compose_field_e0_lvl1, warpped_inputx_lvl1_out, y_down, output_disp_e0_v) + tuple(previous_prediction[3:-1]) + (e0,)
+        else:
+            return compose_field_e0_lvl1
 
 class ConditionalInstanceNorm(nn.Module):
     def __init__(self, in_channel, latent_dim=64):
@@ -518,7 +677,7 @@ def mse_loss(input, target):
     y_true_f = input.view(-1)
     y_pred_f = target.view(-1)
     diff = y_true_f-y_pred_f
-    mse = torch.mul(diff,diff).mean()   
+    mse = torch.mul(diff,diff).mean()
     return mse
 
 
@@ -612,4 +771,3 @@ class multi_resolution_NCC(torch.nn.Module):
             J = nn.functional.avg_pool3d(J, kernel_size=3, stride=2, padding=1, count_include_pad=False)
 
         return sum(total_NCC)
-
