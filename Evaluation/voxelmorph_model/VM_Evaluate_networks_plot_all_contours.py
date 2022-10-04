@@ -39,6 +39,15 @@ root_path_CT_data = opt.root_path_CT_data
 model_name = opt.model_name
 
 
+def transform_unit_flow_to_flow_cuda(flow):
+    b, z, x, y, c = flow.shape
+    flow[:, :, :, :, 0] = flow[:, :, :, :, 0] / (z - 1) * 2
+    flow[:, :, :, :, 1] = flow[:, :, :, :, 1] / (y - 1) * 2
+    flow[:, :, :, :, 2] = flow[:, :, :, :, 2] / (x - 1) * 2
+
+    return flow
+
+
 def deform_contour(flow_field, scan_key, root_path, z_shape, csv_path, moving_tensor, fixed_tensor, warped_tensor):
     def calculate_metrics(moving, fixed, csv_array):
         spacing_mm = [3, 1, 1]
@@ -108,7 +117,6 @@ def deform_contour(flow_field, scan_key, root_path, z_shape, csv_path, moving_te
         writer.writerow(csv_array)
         file.close()
 
-
     combined_moving_contour = combined_moving_contour[0, 0].detach().numpy()
     combined_fixed_contour = combined_fixed_contour[0, 0].detach().numpy()
     combined_warped_contour = combined_warped_contour[0, 0].detach().numpy()
@@ -160,7 +168,8 @@ def jac_loss(flowfield):
 # .\venv\Scripts\activate
 # cd C:\Users\pje33\GitHub\master_thesis_project\
 # Filepaths for the CT data and the trained model.
-# python -m Evaluation.Evaluate_networks_multi_networks.py
+# python -m Evaluation.voxelmorph_model.VM_Evaluate_networks_plot_all_contours.py --root_path_model "C:\Users\pje33\Google Drive\Sync\TU_Delft\MEP\saved_models\voxelmorph_grad_value_test\training_2022_09_26_09_05_41_voxelmorph_hardtan_10_grad_value_100" --model_name "training_2022_09_26_09_05_41_voxelmorph_hardtan_10_grad_value_100"
+
 
 # setting the datapaths
 root_path_data = root_path_CT_data + "/4D-Lung-256-h5/"
@@ -190,7 +199,7 @@ evaluation_set = generate_dataset(evaluation_scan_keys, root_path_data, ct_path_
 calculate_MSE_and_jac = False
 calculate_contours = False
 show_difference = True
-save_flowfield = False
+save_flowfield = True
 
 # Make two CSV files for MSE/JAC and contour metrics
 if calculate_MSE_and_jac:
@@ -223,15 +232,16 @@ for fixed_tensor, moving_tensor, scan_key in evaluation_set:
     with torch.no_grad():
         prediction = model(moving_tensor, fixed_tensor)
     warped_tensor = prediction[0]
-    flowfield = prediction[-1].permute(0, 2, 3, 4, 1)
-    print(torch.max(flowfield, 1))
+    flowfield = prediction[-1].clone().permute(0, 2, 3, 4, 1)
+    flowfield_norm = transform_unit_flow_to_flow_cuda(prediction[-1].clone().permute(0, 2, 3, 4, 1))
+    print(flowfield_norm.shape)
     print(torch.max(flowfield))
-
+    print("max of normal flow field", flowfield.min(), flowfield.mean(), flowfield.max(), )
 
     print("prediction_time:", datetime.now() - start_time, flush=True)
 
     if show_difference:
-        plot_prediction(moving_tensor, fixed_tensor, warped_tensor, flowfield)
+        plot_prediction(moving_tensor, fixed_tensor, warped_tensor, flowfield_norm)
 
     if calculate_MSE_and_jac:
         print("calculate_MSE_and_jac")
@@ -253,7 +263,7 @@ for fixed_tensor, moving_tensor, scan_key in evaluation_set:
 
     if save_flowfield:
         name = "/predicted_flowfield_{}_{}_{}_{}.pth".format(patient_id[0], scan_id[0], f_phase[0], m_phase[0])
-        torch.save(flowfield, root_path_model + name)
+        torch.save(flowfield_norm, root_path_model + name)
         print("flowfield_saved")
 
     del fixed_tensor, moving_tensor

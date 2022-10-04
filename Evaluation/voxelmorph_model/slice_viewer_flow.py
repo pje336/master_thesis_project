@@ -4,6 +4,8 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+
 def remove_keymap_conflicts(new_keys_set):
     for prop in plt.rcParams:
         if prop.startswith('keymap.'):
@@ -13,7 +15,7 @@ def remove_keymap_conflicts(new_keys_set):
                 keys.remove(key)
 
 
-def slice_viewer(volumes, title = None, shape = None, flow_field = None ):
+def slice_viewer(volumes, title=None, shape=None, flow_field=None):
     """
     Function to view slices of 3d volumes using matplotlib
     use j and k to scroll through slices
@@ -23,17 +25,18 @@ def slice_viewer(volumes, title = None, shape = None, flow_field = None ):
 
 
     """
+    print("max plot slice vieuwer", flow_field.max())
     remove_keymap_conflicts({'j', 'k', 'J', 'K'})
     if shape is not None:
-        fig, ax = plt.subplots(shape[0], shape[1], figsize = ( shape[1]*3.1, shape[0]*3.1))
+        fig, ax = plt.subplots(shape[0], shape[1], figsize=(shape[1] * 3.1, shape[0] * 3.1))
         ax = np.array(ax).flatten()
-        while len(ax) > len(volumes)+1:
-            fig.delaxes(ax[shape[1]-1])
-            ax = np.delete(ax,shape[1]-1)
+        while len(ax) > len(volumes) + 1:
+            fig.delaxes(ax[shape[1] - 1])
+            ax = np.delete(ax, shape[1] - 1)
 
     else:
         if flow_field is not None:
-           fig, ax = plt.subplots(1, len(volumes)+1, figsize  = (12,3))
+            fig, ax = plt.subplots(1, len(volumes) + 1, figsize=(12, 3))
         else:
             fig, ax = plt.subplots(1, len(volumes))
 
@@ -41,7 +44,7 @@ def slice_viewer(volumes, title = None, shape = None, flow_field = None ):
         ax[i].volume = volumes[i]
         ax[i].index = volumes[i].shape[0] // 2
         if i < 3:
-            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin = np.amin(volumes[:3]), vmax = np.amax(volumes[:3]))
+            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin=np.amin(volumes[:3]), vmax=np.amax(volumes[:3]))
         else:
             ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin=np.amin(volumes[3:]), vmax=np.amax(volumes[3:]))
 
@@ -50,12 +53,14 @@ def slice_viewer(volumes, title = None, shape = None, flow_field = None ):
     if flow_field is not None:
         grid_size = 4
         dimensions = np.shape(flow_field)
-        ax[-1].index = dimensions[1]//2
+        ax[-1].index = dimensions[1] // 2
         x = np.linspace(0, dimensions[2] - 1, dimensions[2])
         y = np.linspace(0, dimensions[3] - 1, dimensions[3])
         xv, yv = np.meshgrid(x, y)
         ax[-1].clear()
-        ax[-1].im = ax[-1].quiver(xv[::grid_size,::grid_size], yv[::grid_size,::grid_size],flow_field[0,ax[-1].index,::grid_size,::grid_size,1], flow_field[0,ax[-1].index,::grid_size,::grid_size,2])
+        ax[-1].im = ax[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
+                                  flow_field[0, ax[-1].index, ::grid_size, ::grid_size, 1],
+                                  flow_field[0, ax[-1].index, ::grid_size, ::grid_size, 2])
         ax[-1].set_ylim(ax[-1].get_ylim()[::-1])
         ax[-1].volume = [flow_field, xv, yv, grid_size]
         ax[-1].set_title("x-y DVF")
@@ -95,8 +100,10 @@ def previous_slice(axes):
     try:
         [flow_field, xv, yv, grid_size] = axes[-1].volume
         axes[-1].clear()
-        axes[-1].index = (axes[-1].index - 1) % np.shape(flow_field)[1] # wrap around using %
-        axes[-1].im = axes[-1].quiver(xv[::grid_size,::grid_size], yv[::grid_size,::grid_size],flow_field[0,axes[-1].index,::grid_size,::grid_size,1], flow_field[0,axes[-1].index,::grid_size,::grid_size,2])
+        axes[-1].index = (axes[-1].index - 1) % np.shape(flow_field)[1]  # wrap around using %
+        axes[-1].im = axes[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
+                                      flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 1],
+                                      flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 2])
         axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
         axes[-1].set_title("x-y DVF")
     except:
@@ -115,11 +122,9 @@ def next_slice(axes):
     # try:
     [flow_field, xv, yv, grid_size] = axes[-1].volume
     axes[-1].clear()
-    axes[-1].index = (axes[-1].index + 1) % np.shape(flow_field)[1] # wrap around using %
-    axes[-1].im = axes[-1].quiver(xv[::grid_size,::grid_size], yv[::grid_size,::grid_size],flow_field[0,axes[-1].index,::grid_size,::grid_size,1], flow_field[0,axes[-1].index,::grid_size,::grid_size,2])
+    axes[-1].index = (axes[-1].index + 1) % np.shape(flow_field)[1]  # wrap around using %
+    axes[-1].im = axes[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
+                                  flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 1],
+                                  flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 2])
     axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
     axes[-1].set_title("x-y DVF")
-
-
-
-
