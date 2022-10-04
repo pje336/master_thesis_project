@@ -3,7 +3,7 @@
 
 from . import generators
 from . import py
-from .py.utils import default_unet_features
+# from .py.utils import default_unet_features
 
 
 # import backend-dependent submodules

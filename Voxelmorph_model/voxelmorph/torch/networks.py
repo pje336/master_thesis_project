@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
 
-from .. import default_unet_features
+# from .. import default_unet_features
 from . import layers
 from .modelio import LoadableModel, store_config_args
 
@@ -54,8 +54,8 @@ class Unet(nn.Module):
         self.half_res = half_res
 
         # default encoder and decoder layer features if nothing provided
-        if nb_features is None:
-            nb_features = default_unet_features()
+        # if nb_features is None:
+        #     nb_features = default_unet_features()
 
         # build feature list automatically
         if isinstance(nb_features, int):

@@ -1,7 +1,7 @@
 import os
 def training_parameters_to_string(learning_rate, epochs, batch_size, batches_per_step, loss_weights,
                                   validation_batches, nb_features, data_shape, int_downsize, losses,
-                                  dropout_rate, patient_id_training=None, scan_id_training=None,
+                                  dropout_rate, model_name, comment = None, patient_id_training=None, scan_id_training=None,
                                   patient_id_validation=None,
                                   scan_id_validation=None):
     """
@@ -25,7 +25,9 @@ nb_features = {nb_features}
 data_shape = {data_shape}
 int_downsize = {int_downsize}
 losses = {losses}
-dropout_rate = {dropout_rate}"""
+dropout_rate = {dropout_rate}
+model_name = {model_name}
+Comment = {comment}"""
     return text
 
 
