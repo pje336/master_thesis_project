@@ -1,3 +1,8 @@
+"""
+Script to convert the model weights from the pth file to an file with the entire model.
+This is needed for the evaluation script. Make sure the the model class is the correct one.
+"""
+
 import glob
 import os
 import sys
@@ -44,11 +49,11 @@ range_flow = 0.4
 max_smooth = 10.
 start_t = datetime.now()
 
-root_path_saving = '/scratch/thomasvanderme/saved_models/'
+# Code to call this function
+# python -m Evaluation.lap_model.save_model.py --number_res_blocks 5 --number_of_res_filters 8 --root_path_model
 
 
-
-
+# Make network from the classes
 model_lvl1 = Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl1(2, 3, start_channel, is_train=True,
                                                                 imgshape=imgshape_4, range_flow=range_flow,
                                                                 number_res_blocks = number_of_res_blocks_lvl_1,
@@ -66,6 +71,7 @@ model_lvl3 = Miccai2021_LDR_conditional_laplacian_unit_disp_add_lvl_general(2, 3
                                                                      e0_filter_previous_model = 4*8, model_previous=model_lvl2)
 
 
+# loading the weights into the model and saving it.
 print(root_path_dict)
 model_dict_filename = sorted(glob.glob(root_path_dict +  "\*_model_stagelvl3_*.pth"))[-1]
 print(model_dict_filename)

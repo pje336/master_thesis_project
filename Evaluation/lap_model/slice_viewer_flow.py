@@ -1,3 +1,7 @@
+"""
+Code to view the CT images and the flowfield.
+"""
+
 # Code taken from https://www.datacamp.com/tutorial/matplotlib-3d-volumetric-data
 # https://stackoverflow.com/questions/13784201/how-to-have-one-colorbar-for-all-subplots
 
@@ -43,9 +47,9 @@ def slice_viewer(volumes, title=None, shape=None, flow_field=None):
         ax[i].volume = volumes[i]
         ax[i].index = volumes[i].shape[0] // 2
         if i < 3:
-            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin=np.amin(volumes[:3]), vmax=np.amax(volumes[:3]))
+            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin=np.amin(volumes[:3]), vmax=np.amax(volumes[:3]), cmap="gray")
         else:
-            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin=np.amin(volumes[3:]), vmax=np.amax(volumes[3:]))
+            ax[i].im = ax[i].imshow(volumes[i][ax[i].index], vmin=np.amin(volumes[3:]), vmax=np.amax(volumes[3:]),cmap="gray")
 
         if title is not None:
             ax[i].set_title(title[i])
@@ -60,7 +64,7 @@ def slice_viewer(volumes, title=None, shape=None, flow_field=None):
         ax[-1].im = ax[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
                                   flow_field[0, ax[-1].index, ::grid_size, ::grid_size, 1],
                                   flow_field[0, ax[-1].index, ::grid_size, ::grid_size, 2], angles='xy',
-                                  scale_units='xy', scale=0.004)
+                                  scale_units='xy')
         ax[-1].set_ylim(ax[-1].get_ylim()[::-1])
         ax[-1].volume = [flow_field, xv, yv, grid_size]
         ax[-1].set_title("x-y DVF")
@@ -91,42 +95,42 @@ def process_key(event):
 
 
 def previous_slice(axes):
-    for ax in axes[:-1]:
+    for ax in axes:
         volume = ax.volume
         ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
         ax.images[0].set_array(volume[ax.index])
     axes[0].set_ylabel('slice {}'.format(axes[0].index))
 
-    try:
-        [flow_field, xv, yv, grid_size] = axes[-1].volume
-        axes[-1].clear()
-        axes[-1].index = (axes[-1].index - 1) % np.shape(flow_field)[1]  # wrap around using %
-        axes[-1].im = axes[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
-                                      flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 1],
-                                      flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 2], angles='xy',
-                                      scale_units='xy', scale=0.004)
-        axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
-        axes[-1].set_title("x-y DVF")
-    except:
-        volume = axes[-1].volume
-        axes[-1].index = (axes[-1].index - 1) % volume.shape[1]  # wrap around using %
-        axes[-1].images[0].set_array(volume[axes[-1].index])
+    # try:
+    #     [flow_field, xv, yv, grid_size] = axes[-1].volume
+    #     axes[-1].clear()
+    #     axes[-1].index = (axes[-1].index - 1) % np.shape(flow_field)[1]  # wrap around using %
+    #     axes[-1].im = axes[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
+    #                                   flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 1],
+    #                                   flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 2], angles='xy',
+    #                                   scale_units='xy')
+    #     axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
+    #     axes[-1].set_title("x-y DVF")
+    # except:
+    #     volume = axes[-1].volume
+    #     axes[-1].index = (axes[-1].index - 1) % volume.shape[1]  # wrap around using %
+    #     axes[-1].images[0].set_array(volume[axes[-1].index])
 
 
 def next_slice(axes):
-    for ax in axes[:-1]:
+    for ax in axes:
         volume = ax.volume
         ax.index = (ax.index + 1) % volume.shape[0]
         ax.images[0].set_array(volume[ax.index])
     axes[0].set_ylabel('slice {}'.format(axes[0].index))
 
     # try:
-    [flow_field, xv, yv, grid_size] = axes[-1].volume
-    axes[-1].clear()
-    axes[-1].index = (axes[-1].index + 1) % np.shape(flow_field)[1]  # wrap around using %
-    axes[-1].im = axes[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
-                                  flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 1],
-                                  flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 2], angles='xy',
-                                  scale_units='xy', scale=0.004)
-    axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
-    axes[-1].set_title("x-y DVF")
+    # [flow_field, xv, yv, grid_size] = axes[-1].volume
+    # axes[-1].clear()
+    # axes[-1].index = (axes[-1].index + 1) % np.shape(flow_field)[1]  # wrap around using %
+    # axes[-1].im = axes[-1].quiver(xv[::grid_size, ::grid_size], yv[::grid_size, ::grid_size],
+    #                               flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 1],
+    #                               flow_field[0, axes[-1].index, ::grid_size, ::grid_size, 2], angles='xy',
+    #                               scale_units='xy')
+    # axes[-1].set_ylim(axes[-1].get_ylim()[::-1])
+    # axes[-1].set_title("x-y DVF")
