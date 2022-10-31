@@ -1,7 +1,10 @@
 """
-Script to generate sparse 3d matrix with boolean values of contours.
+Get the contour points and save them in a txt file.
+
+TODO: think about scaling and the origin. 
 """
 
+import numpy as np
 from contours.contour import *
 import json
 import sparse
@@ -28,11 +31,14 @@ for patient_id in ct_path_dict.keys():
                 # Find the correct index for the specific roi.
                 try:
                     index_m_phase = get_roi_names(contour_data_moving).index(roi_names[roi_index])
-                    mask_moving = (get_mask(path_images_moving, path_contour_moving, index_m_phase) > 0) * 1
+                    points = get_points(path_images_moving, path_contour_moving, index_m_phase)
+                    print(points)
+                    points = np.divide(points,(2,2,1))
+                    print(points)
+                    print("saving")
+                    # np.savetxt(path_contour_moving+'/../contours/points_contour_{}_{}.txt'.format(roi_names[roi_index].split("_")[0], m_phase), points, delimiter=",", fmt='%f')
 
-                    mask_moving_sparse = sparse.COO(mask_moving)
-                    sparse.save_npz(path_contour_moving+'/sparse_contour_{}.npz'.format(roi_names[roi_index].split("_")[0]), mask_moving_sparse)
-                    #
+
                 except:
                     print("The following ROI was not found:", roi_names[roi_index], flush=True)
                     continue

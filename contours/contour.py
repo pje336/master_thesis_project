@@ -135,6 +135,7 @@ def cfile2pixels(contour_path, path, uid_dict, ROIContourSeq=0):
     RTV = f.ROIContourSequence[ROIContourSeq]
     # get contour datasets in a list
     contours = [contour for contour in RTV.ContourSequence]
+    # print(contours[0].ContourData)
     img_contour_arrays = [coord2pixels(cdata, path, uid_dict) for cdata in
                           contours]  # list of img_arr, contour_arr, im_id
 
@@ -149,6 +150,61 @@ def cfile2pixels(contour_path, path, uid_dict, ROIContourSeq=0):
     img_contour_arrays = [(image_dict[k], contour_dict[k], k) for k in image_dict]
 
     return img_contour_arrays
+
+
+
+
+def cfile2points(contour_path, path, uid_dict, ROIContourSeq=0):
+    """
+    Given a contour file and path of related images return points of the contour
+    Inputs
+        file: filepath of contour
+        path: path that has contour and image files
+        ROIContourSeq: tells which sequence of contouring to use default 0 (RTV)
+        uid_dict: dictionary to convert SOPInstanceUID to filenames
+    Return
+        contour_points: A array of shape [N, 3] of all the contour points.
+    """
+    # handle `/` missing
+    if path[-1] != '/': path += '/'
+    f = dicom.read_file(contour_path)
+    # index 0 means that we are getting RTV information
+    RTV = f.ROIContourSequence[ROIContourSeq]
+    # get contour datasets in a list
+    contours = [contour for contour in RTV.ContourSequence]
+    # print(contours[0].ContourData)
+    contour_points = []
+
+    for contour in contours:
+        contour_points += contour.ContourData
+    contour_points = np.array(contour_points).reshape(-1,3)
+
+    return contour_points
+
+
+def get_points(path_images, path_contour, index, filled=True):
+    """
+    Function to generate an array with the contour points
+    Inputs:
+        path (str): path of the the directory that has DICOM files in it
+        contour_file: structure file
+        index (int): index of the structure
+     Return
+        contour_points: A array of shape [N, 3] of all the contour points.
+    """
+    uid_dict = generate_uid_dict(path_images)
+    # handle `/` missing
+    if path_images[-1] != '/': path_images += '/'
+    if path_contour[-1] != '/': path_contour += '/'
+    # get slice orders
+    ordered_slices = slice_order(path_images, uid_dict)
+    # get contour file
+    contour_file = path_contour + get_contour_file(path_contour)
+
+    # img_arr, contour_arr, img_fname
+    contour_points = cfile2points(contour_file, path_images, uid_dict, index)
+    return contour_points
+
 
 
 def plot2dcontour(img_arr, contour_arr, figsize=(20, 20)):
