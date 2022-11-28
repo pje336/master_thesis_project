@@ -25,6 +25,7 @@ for patient_id in ct_path_dict.keys():
             path_contour_moving = root_path_contour + contour_dict[patient_id][scan_id][m_phase]
             # obtain contour data.
             contour_data_moving = dicom.read_file(path_contour_moving + '/1-1.dcm')
+
             roi_names = get_roi_names(contour_data_moving)
             initial_roi = True
             for roi_index in range(len(roi_names)):
