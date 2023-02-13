@@ -1,7 +1,7 @@
 """
 This file generates a python dictionary for the filepath of the 4DCT data.
 The dictionary has the  format is [patient_number][scan_id][phase].
-It prints the resulting dictionary in json format. This can be saved in an other file.
+It prints the resulting dictionary in json format. This can be saved in another python file.
 """
 import json
 import os
@@ -11,14 +11,15 @@ dictionary_contours = {}
 
 patient_list = []
 scan_list = []
-root_path = "C:/Users/pje33/Google Drive/Sync/TU_Delft/MEP/4D_lung_CT/4D-Lung-256/"
+root_path = "C:/Users/pje33/Downloads/4D-Lung-256-h5/"
 # iterate through all sub folders
 for path, subdirs, files in os.walk(root_path):
     # split the filepath
     splitted_path = path[len(root_path):].split('\\')
-
     # check if it is folder with CT data and if the number of files is larger than 1.
-    if len(splitted_path) >= 3:
+    if len(splitted_path) >= 2:
+        print(path)
+
         # find some words to get the phase.
         pos_gated = splitted_path[-1].find("Gated") + len("Gated") + 1
         pos_dot = splitted_path[-1].find(".", pos_gated)
@@ -27,7 +28,7 @@ for path, subdirs, files in os.walk(root_path):
         patient_number = splitted_path[0][:3]
         scan_id = splitted_path[1]
 
-        # check if the a dict for the patient_number or scan_id already exists.
+        # check if a dict for the patient_number or scan_id already exists.
         # if not, make a dict.
         if patient_number not in patient_list:
             dictionary_CT_data[patient_number] = {}
@@ -41,9 +42,9 @@ for path, subdirs, files in os.walk(root_path):
         # Insert filepath into the dict.
         # If it has more than one file it are the CT slices
         if len(next(os.walk(path))[-1]) > 1:
-            dictionary_CT_data[patient_number][scan_id][phase] = path[len(root_path):].replace('\\', "/")
-        else:  # Else it are the contours.
-            dictionary_contours[patient_number][scan_id][phase] = path[len(root_path):].replace('\\', "/")
+            dictionary_CT_data[patient_number][scan_id] = path[len(root_path):].replace('\\', "/")
+        else:  # Else it is the contours file.
+            dictionary_contours[patient_number][scan_id] = path[len(root_path):].replace('\\', "/")
 
 # print the dict in json format.
 scan_file = open(root_path + "scan_dictionary.json", "w")
