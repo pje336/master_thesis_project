@@ -1,8 +1,8 @@
 """
-Script to generate sparse 3d matrix with boolean values of contours.
+Script to generate sparse 3d matrix with boolean values of contours from DICOM files.
 """
 
-from contours.contour import *
+from contours.contour_functions import *
 import json
 import sparse
 

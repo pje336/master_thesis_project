@@ -1,11 +1,11 @@
 """
-Get the contour points and save them in a txt file.
+Script to generate txt file with contour points  from DICOM files.
 
 TODO: think about scaling and the origin. 
 """
 
 import numpy as np
-from contours.contour import *
+from contours.contour_functions import *
 import json
 import sparse
 
@@ -37,15 +37,9 @@ for patient_id in ct_path_dict.keys():
                     points = np.divide(points,(2,2,1))
                     print(points)
                     print("saving")
-                    # np.savetxt(path_contour_moving+'/../contours/points_contour_{}_{}.txt'.format(roi_names[roi_index].split("_")[0], m_phase), points, delimiter=",", fmt='%f')
+                    np.savetxt(path_contour_moving+'/../contours/points_contour_{}_{}.txt'.format(roi_names[roi_index].split("_")[0], m_phase), points, delimiter=",", fmt='%f')
 
 
                 except:
                     print("The following ROI was not found:", roi_names[roi_index], flush=True)
                     continue
-
-
-
-
-
-

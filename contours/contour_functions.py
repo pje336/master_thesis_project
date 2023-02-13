@@ -375,7 +375,7 @@ def generate_uid_dict(path):
     """
     Generate a dictionary to convert SOPInstanceUID to filenames
     Args:
-        path: path of the the directory that has DICOM files in it
+        path: path of the directory that has DICOM files in it
 
     Returns: uid_dict: dictionary to convert SOPInstanceUID to filenames
 
